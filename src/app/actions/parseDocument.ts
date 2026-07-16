@@ -8,6 +8,10 @@ export async function parseDocument(formData: FormData) {
     const file = formData.get('file') as File;
     if (!file) throw new Error('No file provided');
     
+    if (file.size === 0) {
+      return { success: false, error: 'ไม่สามารถอ่านไฟล์ได้ (ไฟล์อาจจะกำลังเปิดใช้งานอยู่ในโปรแกรมอื่น เช่น Microsoft Word โปรดปิดไฟล์ก่อนอัปโหลด)' };
+    }
+
     const buffer = await file.arrayBuffer();
     const fileName = file.name.toLowerCase();
     
@@ -47,11 +51,11 @@ export async function parseDocument(formData: FormData) {
 
     // Upload file to Vercel Blob
     const uniqueName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-    const blob = await put(uniqueName, file, { access: 'public' });
+    const blob = await put(uniqueName, buffer, { access: 'private', contentType: file.type });
     
     return { 
       success: true, 
-      url: blob.url, 
+      url: `/api/file?url=${encodeURIComponent(blob.url)}`, 
       extractedFields 
     };
   } catch (error: any) {
