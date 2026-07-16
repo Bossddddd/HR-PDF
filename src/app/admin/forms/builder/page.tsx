@@ -11,7 +11,7 @@ type BlockType = 'heading' | 'paragraph' | 'input' | 'signature' | 'date';
 interface Block {
   id: string;
   type: BlockType;
-  content: string;
+  content?: string;
   label?: string;
   placeholder?: string;
   required?: boolean;
