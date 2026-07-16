@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model FormTemplate {
+  id              String         @id @default(uuid())
+  title           String
+  description     String?
+  blocksJson      String         // JSON string representing A4 canvas blocks
+  workflowJson    String         // JSON string representing workflow stages
+  isLoginRequired Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  responses       FormResponse[]
+}
+
+model FormResponse {
+  id             String       @id @default(uuid())
+  formTemplateId String
+  formTemplate   FormTemplate @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
+  submitterName  String
+  status         String       @default("รอตรวจสอบ") // Current stage in workflow
+  dataJson       String       // JSON string of all inputs/signatures filled
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  details   String
+  user      String
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  id    String @id @default(uuid())
+  key   String @unique
+  value String // JSON string for flexibility (e.g. storing an array of statuses)
+}
