@@ -86,12 +86,17 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="min-h-screen bg-slate-100 py-12 px-4 font-sans text-slate-900">
       <div className="max-w-3xl mx-auto">
-        <button onClick={() => router.back()} className="text-slate-600 font-bold mb-6 hover:underline flex items-center gap-2">
-          &larr; กลับ
-        </button>
+        <div className="flex justify-between items-center mb-6 print:hidden">
+          <button onClick={() => router.back()} className="text-slate-600 font-bold hover:underline flex items-center gap-2">
+            &larr; กลับ
+          </button>
+          <button onClick={() => window.print()} className="text-indigo-600 font-bold bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 flex items-center gap-2 transition-colors">
+            🖨️ พิมพ์เอกสาร (Print PDF)
+          </button>
+        </div>
 
         <div className="bg-white shadow-xl rounded-xl p-8 md:p-12 border border-slate-200 min-h-[1123px] relative flex flex-col gap-6">
-          <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-t-xl"></div>
+          <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-t-xl print:hidden"></div>
           
           <div className="mb-4 border-b border-slate-200 pb-4 flex justify-between items-start">
             <div>
@@ -178,7 +183,7 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
           </div>
 
           {!isReadOnly && (
-            <div className="mt-12 pt-8 border-t border-slate-200 flex gap-4 justify-end">
+            <div className="mt-12 pt-8 border-t border-slate-200 flex gap-4 justify-end print:hidden">
               <button 
                 type="button"
                 onClick={handleReject}

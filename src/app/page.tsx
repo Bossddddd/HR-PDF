@@ -3,21 +3,23 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { getFormTemplates } from "@/app/actions/forms";
+import { getWorkflows } from "@/app/actions/workflows";
+import { useRole } from "@/app/context/RoleContext";
 
 export default function Home() {
   const [forms, setForms] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { role, isLoading: roleLoading } = useRole();
 
   useEffect(() => {
-    async function fetchForms() {
-      const res = await getFormTemplates();
+    async function fetchWorkflows() {
+      const res = await getWorkflows();
       if (res.success) {
-        setForms(res.forms || []);
+        setForms(res.workflows || []);
       }
       setLoading(false);
     }
-    fetchForms();
+    fetchWorkflows();
   }, []);
 
   return (
@@ -33,12 +35,22 @@ export default function Home() {
               เลือกระบบฟอร์มที่คุณต้องการกรอกข้อมูล
             </p>
           </div>
-          <Link 
-            href="/admin" 
-            className="bg-white text-slate-700 px-6 py-3 rounded-full font-semibold shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200"
-          >
-            ผู้ดูแลระบบ
-          </Link>
+          <div className="flex gap-4">
+            <Link 
+              href="/inbox" 
+              className="bg-blue-600 text-white px-6 py-3 rounded-full font-semibold shadow-sm hover:shadow-md hover:bg-blue-700 transition-all duration-200"
+            >
+              📥 กล่องข้อความ (Inbox)
+            </Link>
+            {!roleLoading && role && role.level >= 40 && (
+              <Link 
+                href="/admin" 
+                className="bg-white text-slate-700 px-6 py-3 rounded-full font-semibold shadow-sm border border-slate-200 hover:shadow-md hover:border-slate-300 transition-all duration-200"
+              >
+                ผู้ดูแลระบบ
+              </Link>
+            )}
+          </div>
         </header>
 
         <main>
@@ -57,7 +69,6 @@ export default function Home() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {forms.map(f => {
-                const blocksCount = f.blocksJson ? JSON.parse(f.blocksJson).length : 0;
                 return (
                   <div 
                     key={f.id} 
@@ -70,7 +81,7 @@ export default function Home() {
                       </div>
                       <h2 className="text-xl font-bold text-slate-800 mb-2 leading-snug line-clamp-2">{f.title}</h2>
                       <p className="text-slate-500 text-sm mb-6">
-                        {f.description || 'แบบฟอร์มอิเล็กทรอนิกส์'} • {blocksCount} ช่องข้อมูล
+                        {f.description || 'แบบฟอร์มอิเล็กทรอนิกส์'} • {f.steps?.length || 0} ขั้นตอน
                       </p>
                       <div className="mt-auto flex flex-col gap-2">
                         <Link 

@@ -5,9 +5,9 @@ export const revalidate = 0; // Disable caching to always show latest stats
 
 export default async function AdminDashboard() {
   // Fetch stats directly from Database
-  const totalResponses = await prisma.formResponse.count();
+  const totalResponses = await prisma.workflowResponse.count();
   
-  const pendingCount = await prisma.formResponse.count({
+  const pendingCount = await prisma.workflowResponse.count({
     where: {
       status: {
         notIn: ['อนุมัติแล้ว', 'ตีกลับ']
@@ -15,29 +15,29 @@ export default async function AdminDashboard() {
     }
   });
 
-  const completedCount = await prisma.formResponse.count({
+  const completedCount = await prisma.workflowResponse.count({
     where: {
       status: 'อนุมัติแล้ว'
     }
   });
 
-  const rejectedCount = await prisma.formResponse.count({
+  const rejectedCount = await prisma.workflowResponse.count({
     where: {
       status: 'ตีกลับ'
     }
   });
 
-  const totalTemplates = await prisma.formTemplate.count();
+  const totalTemplates = await prisma.workflow.count();
 
   // Fetch recent pending actions
-  const urgentTasks = await prisma.formResponse.findMany({
+  const urgentTasks = await prisma.workflowResponse.findMany({
     where: {
       status: {
         in: ['รอตรวจสอบ', 'รอผู้บริหารเซ็น']
       }
     },
     include: {
-      formTemplate: { select: { title: true } }
+      workflow: { select: { title: true } }
     },
     orderBy: { createdAt: 'desc' },
     take: 5
@@ -91,7 +91,7 @@ export default async function AdminDashboard() {
                 <div className="flex items-center gap-4">
                   <div className={`w-3 h-3 rounded-full ${task.status === 'รอผู้บริหารเซ็น' ? 'bg-orange-500' : 'bg-yellow-500'}`}></div>
                   <div>
-                    <h4 className="font-bold text-slate-800">{task.formTemplate?.title}</h4>
+                    <h4 className="font-bold text-slate-800">{task.workflow?.title}</h4>
                     <p className="text-sm text-slate-500">ส่งโดย: {task.submitterName} • {new Date(task.createdAt).toLocaleString('th-TH')}</p>
                   </div>
                 </div>

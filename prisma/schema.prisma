@@ -6,29 +6,99 @@ datasource db {
   provider = "postgresql"
 }
 
-model FormTemplate {
+// ========================
+// Role & Permission System
+// ========================
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  level       Int      @default(0) // Higher level = more access
+  permissions String   @default("[]") // JSON string of allowed module paths
+  isSystem    Boolean  @default(false) // System roles cannot be deleted
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  username  String   @unique
+  password  String   // Mock password for future real auth
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ========================
+// Document Library
+// ========================
+model Document {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  type        String   @default("canvas") // 'canvas' or 'file'
+  contentJson String?  // For 'canvas' documents (A4 blocks)
+  fileUrl     String?  // For 'file' documents (PDF/Word from Vercel Blob)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workflows   WorkflowStep[]
+}
+
+// ========================
+// Workflow Management
+// ========================
+model Workflow {
   id              String         @id @default(uuid())
   title           String
   description     String?
-  blocksJson      String         // JSON string representing A4 canvas blocks
-  workflowJson    String         // JSON string representing workflow stages
   isLoginRequired Boolean        @default(false)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
-  responses       FormResponse[]
+  
+  steps           WorkflowStep[]
+  responses       WorkflowResponse[]
 }
 
-model FormResponse {
-  id             String       @id @default(uuid())
-  formTemplateId String
-  formTemplate   FormTemplate @relation(fields: [formTemplateId], references: [id], onDelete: Cascade)
-  submitterName  String
-  status         String       @default("รอตรวจสอบ") // Current stage in workflow
-  dataJson       String       // JSON string of all inputs/signatures filled
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+model WorkflowStep {
+  id           String    @id @default(uuid())
+  orderIndex   Int       // 1, 2, 3...
+  workflowId   String
+  workflow     Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  roleName     String    // E.g. "User", "Manager" (Matches Role.name)
+  documentId   String?
+  document     Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
+// ========================
+// Execution / Forms
+// ========================
+model WorkflowResponse {
+  id            String       @id @default(uuid())
+  workflowId    String
+  workflow      Workflow     @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  submitterName String
+  
+  // Overall status of the workflow
+  status        String       @default("รอตรวจสอบ") 
+  currentStep   Int          @default(1) // Points to WorkflowStep.orderIndex
+  
+  // Data for each document step
+  dataJson      String       // JSON storing inputs/signatures or file URLs if step requires upload
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+// ========================
+// System logs & Settings
+// ========================
 model AuditLog {
   id        String   @id @default(uuid())
   action    String
@@ -40,5 +110,5 @@ model AuditLog {
 model Setting {
   id    String @id @default(uuid())
   key   String @unique
-  value String // JSON string for flexibility (e.g. storing an array of statuses)
+  value String // JSON string
 }

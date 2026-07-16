@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { getResponses } from '@/app/actions/responses';
 import { useRole } from '@/app/context/RoleContext';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function InboxPage() {
   const router = useRouter();
@@ -28,12 +29,12 @@ export default function InboxPage() {
     if (['อนุมัติแล้ว', 'ตีกลับ'].includes(r.status)) return false;
     
     // Admin sees everything pending
-    if (role === 'ผู้ดูแลระบบ (Admin)') return true;
+    if (role?.name === 'ผู้ดูแลระบบ (Admin)') return true;
     
     // Filter by role responsibility
-    if (role === 'หัวหน้างาน / HR' && r.status === 'รอตรวจสอบ') return true;
-    if (role === 'ผู้จัดการ (Manager)' && r.status === 'รอผู้จัดการอนุมัติ') return true;
-    if (role === 'ผู้บริหาร (Executive)' && r.status === 'รอผู้บริหารเซ็น') return true;
+    if (role?.name === 'หัวหน้างาน / HR' && r.status === 'รอตรวจสอบ') return true;
+    if (role?.name === 'ผู้จัดการ (Manager)' && r.status === 'รอผู้จัดการอนุมัติ') return true;
+    if (role?.name === 'ผู้บริหาร (Executive)' && r.status === 'รอผู้บริหารเซ็น') return true;
     
     return false;
   });
@@ -41,10 +42,22 @@ export default function InboxPage() {
   const completedItems = responses.filter(r => ['อนุมัติแล้ว', 'ตีกลับ'].includes(r.status));
   const displayItems = activeTab === 'pending' ? pendingItems : completedItems;
 
+  const handleBack = () => {
+    // If there's a history, go back. Otherwise go to appropriate dashboard.
+    if (window.history.length > 1 && document.referrer) {
+      router.back();
+    } else {
+      router.push(role && role.level >= 40 ? '/admin' : '/');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       <header className="bg-white border-b border-slate-200 h-16 flex items-center px-6 shrink-0 z-10 shadow-sm sticky top-0">
         <div className="flex items-center gap-3">
+          <button onClick={handleBack} className="mr-2 text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-full hover:bg-slate-100">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+          </button>
           <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold shadow-sm">
             Inbox
           </div>
@@ -53,7 +66,7 @@ export default function InboxPage() {
         
         <div className="ml-auto flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-slate-600">👤 {role}</span>
+            <span className="text-sm font-medium text-slate-600">👤 {role?.name || 'Loading...'}</span>
           </div>
         </div>
       </header>
@@ -89,7 +102,7 @@ export default function InboxPage() {
               <div className="text-center py-20">
                 <div className="text-6xl mb-4">📭</div>
                 <h3 className="text-xl font-bold text-slate-700 mb-2">กล่องเอกสารว่างเปล่า</h3>
-                <p className="text-slate-500 text-sm">ไม่มีเอกสารที่รอให้คุณ (ตำแหน่ง: {role}) ดำเนินการในขณะนี้</p>
+                <p className="text-slate-500 text-sm">ไม่มีเอกสารที่รอให้คุณ (ตำแหน่ง: {role?.name}) ดำเนินการในขณะนี้</p>
               </div>
             ) : (
               <div className="flex flex-col gap-3">

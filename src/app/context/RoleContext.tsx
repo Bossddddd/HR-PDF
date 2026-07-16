@@ -1,38 +1,94 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getUsers } from '@/app/actions/users';
+import { getRoles } from '@/app/actions/roles';
 
-export type Role = 'ผู้ใช้ทั่วไป (User)' | 'หัวหน้างาน / HR' | 'ผู้จัดการ (Manager)' | 'ผู้บริหาร (Executive)' | 'ผู้ดูแลระบบ (Admin)';
+export interface Role {
+  id: string;
+  name: string;
+  description: string | null;
+  level: number;
+  permissions: string;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  username: string;
+  roleId: string;
+  role: Role;
+}
 
 interface RoleContextType {
-  role: Role;
-  setRole: (role: Role) => void;
+  user: User | null;
+  users: User[];
+  role: Role | null;
+  roles: Role[];
+  setUser: (username: string) => void;
+  isLoading: boolean;
 }
 
 const RoleContext = createContext<RoleContextType | undefined>(undefined);
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRoleState] = useState<Role>('ผู้ใช้ทั่วไป (User)');
-  const [mounted, setMounted] = useState(false);
+  const [user, setUserState] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
+  const [role, setRoleState] = useState<Role | null>(null);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const savedRole = localStorage.getItem('mockRole') as Role;
-    if (savedRole) {
-      setRoleState(savedRole);
+    async function loadData() {
+      const [usersRes, rolesRes] = await Promise.all([getUsers(), getRoles()]);
+      
+      if (rolesRes.success && rolesRes.roles) {
+        setRoles(rolesRes.roles);
+      }
+
+      if (usersRes.success && usersRes.users && usersRes.users.length > 0) {
+        setUsers(usersRes.users);
+        const savedUsername = localStorage.getItem('mockUser');
+        const found = usersRes.users.find((u: User) => u.username === savedUsername);
+        
+        if (found) {
+          setUserState(found);
+          setRoleState(found.role);
+        } else {
+          // Default to the first user
+          const defaultUser = usersRes.users[0];
+          setUserState(defaultUser);
+          setRoleState(defaultUser.role);
+          localStorage.setItem('mockUser', defaultUser.username);
+        }
+      } else {
+        // Fallback if no users exist: Admin mock role
+        const fallbackRole = {
+          id: 'mock-admin',
+          name: 'ผู้ดูแลระบบ (Admin)',
+          description: 'Mock System Admin',
+          level: 100,
+          permissions: '[]'
+        };
+        setRoleState(fallbackRole);
+      }
+      setIsLoading(false);
     }
-    setMounted(true);
+    loadData();
   }, []);
 
-  const setRole = (newRole: Role) => {
-    setRoleState(newRole);
-    localStorage.setItem('mockRole', newRole);
-    window.location.reload(); // Reload to apply layout/protection changes
+  const setUser = (newUsername: string) => {
+    const found = users.find(u => u.username === newUsername);
+    if (found) {
+      setUserState(found);
+      setRoleState(found.role);
+      localStorage.setItem('mockUser', newUsername);
+      window.location.reload();
+    }
   };
 
-  if (!mounted) return null; // Prevent hydration mismatch
-
   return (
-    <RoleContext.Provider value={{ role, setRole }}>
+    <RoleContext.Provider value={{ user, users, role, roles, setUser, isLoading }}>
       {children}
     </RoleContext.Provider>
   );
