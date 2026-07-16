@@ -86,7 +86,7 @@ export default async function AdminDashboard() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {urgentTasks.map(task => (
+            {urgentTasks.map((task: any) => (
               <div key={task.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
                 <div className="flex items-center gap-4">
                   <div className={`w-3 h-3 rounded-full ${task.status === 'รอผู้บริหารเซ็น' ? 'bg-orange-500' : 'bg-yellow-500'}`}></div>
