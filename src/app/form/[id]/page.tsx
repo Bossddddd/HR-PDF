@@ -8,6 +8,11 @@ import { useRole } from '@/app/context/RoleContext';
 import { createSignatureSession, checkSignatureSession } from '@/app/actions/signature';
 import { QRCodeSVG } from 'qrcode.react';
 import SignatureCanvas from 'react-signature-canvas';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export default function FillFormPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -20,6 +25,7 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
   const [submitterName, setSubmitterName] = useState('');
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [numPages, setNumPages] = useState<number | null>(null);
 
   // Signature Modal State
   const [activeSignField, setActiveSignField] = useState<string | null>(null);
@@ -172,6 +178,9 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
     return { allFields: fields, attachedFiles: files };
   }, [workflow]);
 
+  const pdfFile = attachedFiles.find(f => f.url?.toLowerCase().includes('.pdf'));
+  const isPdfMode = !!pdfFile;
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">กำลังโหลดเอกสาร...</div>;
   }
@@ -239,6 +248,76 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
           {allFields.length === 0 && attachedFiles.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-10 text-center text-slate-500">
               ไม่มีฟิลด์ข้อมูลที่ต้องกรอกในขั้นตอนนี้
+            </div>
+          ) : isPdfMode && pdfFile ? (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex justify-center p-8 bg-slate-100">
+              <div className="w-full max-w-[794px] min-h-[1123px] bg-white shadow-md relative">
+                <div className="absolute inset-0 z-0 pointer-events-none">
+                  <Document 
+                    file={pdfFile.url} 
+                    onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                    className="flex flex-col gap-4"
+                  >
+                    {Array.from(new Array(numPages || 1), (el, index) => (
+                      <Page 
+                        key={`page_${index + 1}`} 
+                        pageNumber={index + 1} 
+                        renderTextLayer={false} 
+                        renderAnnotationLayer={false}
+                        width={794}
+                      />
+                    ))}
+                  </Document>
+                </div>
+                
+                <div className="relative z-10 w-[794px] min-h-[1123px]">
+                  {allFields.map((field) => {
+                    const isMyRole = !field.assignedRole || field.assignedRole === 'ผู้ใช้ทั่วไป (User)' || field.stepRole === 'ผู้ใช้ทั่วไป (User)';
+                    if (field.type === 'heading' || field.type === 'paragraph' || field.type === 'image') return null;
+                    
+                    return (
+                      <div 
+                        key={field.id}
+                        className="absolute"
+                        style={{ left: `${field.x || 10}%`, top: `${field.y || 10}%`, width: field.width || '100%' }}
+                      >
+                        <div className={`p-1 ${isMyRole ? 'border-2 border-dashed border-blue-400 bg-blue-50/50 rounded' : ''}`}>
+                          {field.type === 'input' && (
+                            <input 
+                              type="text" 
+                              value={formData[field.id] || ''} 
+                              onChange={(e) => handleChange(field.id, e.target.value)}
+                              disabled={!isMyRole}
+                              className="w-full bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                              placeholder={isMyRole ? field.label : ''}
+                            />
+                          )}
+                          {field.type === 'date' && (
+                            <input 
+                              type="date" 
+                              disabled={!isMyRole}
+                              value={formData[field.id] || ''}
+                              onChange={e => handleChange(field.id, e.target.value)}
+                              className="w-full bg-transparent border-none outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                            />
+                          )}
+                          {field.type === 'signature' && (
+                            <div className="cursor-pointer" onClick={() => isMyRole && openSignatureModal(field.id)}>
+                              {formData[field.id] ? (
+                                <img src={formData[field.id]} alt="Signature" className="h-10 mix-blend-multiply" />
+                              ) : isMyRole ? (
+                                <span className="text-blue-500 text-xs">[คลิกเซ็นชื่อ]</span>
+                              ) : (
+                                <span className="text-slate-400 text-xs">[รอเซ็น]</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           ) : (
             <>

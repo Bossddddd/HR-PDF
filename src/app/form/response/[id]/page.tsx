@@ -77,16 +77,11 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">กำลังโหลดเอกสาร...</div>;
-  if (!response || !response.workflow) return <div className="min-h-screen flex items-center justify-center bg-slate-50">ไม่พบเอกสาร 404</div>;
-
-  const form = response.workflow;
-  const isReadOnly = response.status === 'อนุมัติแล้ว' || response.status === 'ตีกลับ';
-
   // Extract fields from all documents in the workflow
   const { allFields, attachedFiles } = useMemo(() => {
     const fields: any[] = [];
     const files: any[] = [];
+    const form = response?.workflow;
     if (!form) return { allFields: fields, attachedFiles: files };
     
     const fieldKeys = new Set<string>();
@@ -118,7 +113,13 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
       }
     });
     return { allFields: fields, attachedFiles: files };
-  }, [form]);
+  }, [response]);
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">กำลังโหลดเอกสาร...</div>;
+  if (!response || !response.workflow) return <div className="min-h-screen flex items-center justify-center bg-slate-50">ไม่พบเอกสาร 404</div>;
+
+  const form = response.workflow;
+  const isReadOnly = response.status === 'อนุมัติแล้ว' || response.status === 'ตีกลับ';
 
   return (
     <div className="min-h-screen bg-slate-100 py-12 px-4 font-sans text-slate-900">
@@ -127,12 +128,30 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
           <button onClick={() => router.back()} className="text-slate-600 font-bold hover:underline flex items-center gap-2">
             &larr; กลับ
           </button>
-          <button onClick={() => window.print()} className="text-indigo-600 font-bold bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 flex items-center gap-2 transition-colors">
-            🖨️ พิมพ์เอกสาร (Print PDF)
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => window.print()} className="text-indigo-600 font-bold bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 flex items-center gap-2 transition-colors">
+              🖨️ พิมพ์ (Print)
+            </button>
+            {response.workflow?.steps?.some((s: any) => s.document?.type === 'file' && s.document?.fileUrl?.toLowerCase().includes('.pdf')) && (
+              <a href={`/api/export-document?responseId=${response.id}`} target="_blank" rel="noopener noreferrer" className="text-white font-bold bg-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2 transition-colors">
+                📥 ดาวน์โหลด (PDF)
+              </a>
+            )}
+            
+            {response.workflow?.steps?.some((s: any) => s.document?.type === 'file' && s.document?.fileUrl?.toLowerCase().includes('.docx')) && (
+              <>
+                <a href={`/api/export-document?responseId=${response.id}&format=docx`} target="_blank" rel="noopener noreferrer" className="text-white font-bold bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors shadow-sm">
+                  📥 ดาวน์โหลด (Word)
+                </a>
+                <a href={`/api/export-document?responseId=${response.id}&format=pdf`} target="_blank" rel="noopener noreferrer" className="text-white font-bold bg-red-600 px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2 transition-colors shadow-sm" title="⚠️ ฟีเจอร์แปลง PDF อาจจะไม่ทำงานบนระบบ Vercel">
+                  📥 ดาวน์โหลด (PDF)
+                </a>
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="bg-white shadow-xl rounded-xl p-8 md:p-12 border border-slate-200 min-h-[1123px] relative flex flex-col gap-6">
+        <div className="bg-white shadow-xl rounded-xl p-8 md:p-12 border border-slate-200 min-h-[1123px] relative flex flex-col gap-6 print:shadow-none print:border-none print:p-0 print:min-h-0">
           <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-t-xl print:hidden"></div>
           
           <div className="mb-4 border-b border-slate-200 pb-4 flex justify-between items-start">
@@ -162,7 +181,7 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
                   <div key={block.id} className="w-full">
                     <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
                       {block.label}
-                      <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'}`}>({block.assignedRole || block.stepRole})</span>
+                      <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'} print:hidden`}>({block.assignedRole || block.stepRole})</span>
                     </label>
                     <input 
                       type="text" 
@@ -170,7 +189,7 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
                       value={formData[block.id] || ''}
                       onChange={(e) => handleChange(block.id, e.target.value)}
                       placeholder={isMyRole ? "กรุณากรอกข้อมูลเพื่อประเมิน..." : ""}
-                      className={`w-full border rounded-lg px-4 py-3 outline-none transition-colors ${isMyRole ? 'bg-indigo-50 border-indigo-200 focus:border-indigo-500 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                      className={`w-full border rounded-lg px-4 py-3 outline-none transition-colors ${isMyRole ? 'bg-indigo-50 border-indigo-200 focus:border-indigo-500 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'} print:border-none print:bg-transparent print:p-0 print:text-black print:font-normal`}
                     />
                   </div>
                 );
@@ -181,7 +200,7 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
                   <div key={block.id} className="w-full">
                     <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
                       {block.label}
-                      <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'}`}>({block.assignedRole || block.stepRole})</span>
+                      <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'} print:hidden`}>({block.assignedRole || block.stepRole})</span>
                     </label>
                     <textarea 
                       disabled={!isMyRole}
@@ -189,7 +208,7 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
                       onChange={(e) => handleChange(block.id, e.target.value)}
                       placeholder={isMyRole ? "กรุณากรอกข้อมูลเพื่อประเมิน..." : ""}
                       rows={3}
-                      className={`w-full border rounded-lg px-4 py-3 outline-none transition-colors resize-none ${isMyRole ? 'bg-indigo-50 border-indigo-200 focus:border-indigo-500 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                      className={`w-full border rounded-lg px-4 py-3 outline-none transition-colors resize-none ${isMyRole ? 'bg-indigo-50 border-indigo-200 focus:border-indigo-500 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'} print:border-none print:bg-transparent print:p-0 print:text-black print:font-normal`}
                     />
                   </div>
                 );
@@ -200,14 +219,14 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
                   <div key={block.id} className="w-full sm:w-1/2">
                     <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
                       {block.label}
-                      <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'}`}>({block.assignedRole || block.stepRole})</span>
+                      <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'} print:hidden`}>({block.assignedRole || block.stepRole})</span>
                     </label>
                     <input 
                       type="date" 
                       disabled={!isMyRole}
                       value={formData[block.id] || ''}
                       onChange={(e) => handleChange(block.id, e.target.value)}
-                      className={`w-full border rounded-lg px-4 py-3 outline-none transition-colors ${isMyRole ? 'bg-indigo-50 border-indigo-200 focus:border-indigo-500 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                      className={`w-full border rounded-lg px-4 py-3 outline-none transition-colors ${isMyRole ? 'bg-indigo-50 border-indigo-200 focus:border-indigo-500 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'} print:border-none print:bg-transparent print:p-0 print:text-black print:font-normal`}
                     />
                   </div>
                 );
@@ -219,7 +238,7 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
                     <div className="w-full sm:w-64 flex flex-col">
                       <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
                         {block.label}
-                        <span className="ml-2 text-xs font-normal">สำหรับ: {block.assignedRole || block.stepRole}</span>
+                        <span className="ml-2 text-xs font-normal print:hidden">สำหรับ: {block.assignedRole || block.stepRole}</span>
                       </label>
                       <input 
                         type="text" 
@@ -227,7 +246,7 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
                         placeholder={isMyRole ? "พิมพ์ชื่อเพื่อเซ็นอนุมัติ" : hasData ? "" : "รอการลงนาม..."}
                         value={formData[block.id] || ''}
                         onChange={(e) => handleChange(block.id, e.target.value)}
-                        className={`w-full border rounded-lg px-4 py-3 outline-none text-center italic font-semibold transition-colors ${isMyRole ? 'bg-indigo-50 border-indigo-300 text-indigo-700 focus:border-indigo-600 shadow-inner' : hasData ? 'bg-white border-transparent text-slate-800 text-xl' : 'bg-slate-50 border-slate-200 text-slate-400'}`}
+                        className={`w-full border rounded-lg px-4 py-3 outline-none text-center italic font-semibold transition-colors ${isMyRole ? 'bg-indigo-50 border-indigo-300 text-indigo-700 focus:border-indigo-600 shadow-inner' : hasData ? 'bg-white border-transparent text-slate-800 text-xl' : 'bg-slate-50 border-slate-200 text-slate-400'} print:border-none print:bg-transparent print:p-0 print:text-black print:font-normal`}
                       />
                     </div>
                   </div>

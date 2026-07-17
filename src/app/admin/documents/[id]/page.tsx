@@ -2,10 +2,16 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { getDocumentById, updateDocumentContent } from '@/app/actions/documents';
 import { getRoles } from '@/app/actions/roles';
 import { uploadImage } from '@/app/actions/upload';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 type BlockType = 'heading' | 'paragraph' | 'image' | 'input' | 'date' | 'signature';
 type BlockWidth = '100%' | '50%' | '33.33%' | '25%';
@@ -19,6 +25,9 @@ interface Block {
   placeholder?: string;
   assignedRole?: string;
   required?: boolean;
+  x?: number; // percentage
+  y?: number; // percentage
+  page?: number;
 }
 
 export default function DocumentBuilderPage({ params }: { params: Promise<{ id: string }> }) {
@@ -31,6 +40,8 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [roles, setRoles] = useState<any[]>([]);
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [isPdf, setIsPdf] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -45,6 +56,9 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
 
       if (docRes.success && docRes.document) {
         setDocument(docRes.document);
+        if (docRes.document.type === 'file' && docRes.document.fileUrl && docRes.document.fileUrl.toLowerCase().includes('.pdf')) {
+          setIsPdf(true);
+        }
         try {
           if (docRes.document.contentJson) {
             setBlocks(JSON.parse(docRes.document.contentJson));
@@ -69,6 +83,7 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
       content: type === 'heading' ? 'หัวข้อใหม่' : type === 'paragraph' ? 'พิมพ์ข้อความที่นี่...' : '',
       label: type === 'input' ? 'คำถามใหม่' : type === 'date' ? 'วันที่' : type === 'signature' ? 'ลายเซ็น' : '',
       required: false,
+      ...(isPdf ? { x: 10, y: 10, page: 1 } : {})
     };
     setBlocks([...blocks, newBlock]);
   };
@@ -90,6 +105,29 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
     setBlocks(newBlocks);
   };
 
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    if (!isPdf) return;
+    e.dataTransfer.setData('blockId', id);
+    const rect = (e.target as HTMLElement).getBoundingClientRect();
+    e.dataTransfer.setData('offsetX', (e.clientX - rect.left).toString());
+    e.dataTransfer.setData('offsetY', (e.clientY - rect.top).toString());
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (!isPdf) return;
+    e.preventDefault();
+    const id = e.dataTransfer.getData('blockId');
+    if (!id) return;
+    const offsetX = parseFloat(e.dataTransfer.getData('offsetX') || '0');
+    const offsetY = parseFloat(e.dataTransfer.getData('offsetY') || '0');
+    
+    const container = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - container.left - offsetX) / container.width) * 100;
+    const y = ((e.clientY - container.top - offsetY) / container.height) * 100;
+    
+    updateBlock(id, { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const res = await updateDocumentContent(docId, JSON.stringify(blocks));
@@ -104,16 +142,25 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50">กำลังโหลด...</div>;
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-slate-200">
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
       
-      {/* Left Sidebar: Tools */}
+      {/* Left Sidebar Tools */}
       <div className="w-64 bg-white border-r border-slate-200 flex flex-col shadow-sm z-10">
-        <div className="p-4 border-b border-slate-100">
-          <button onClick={() => router.push('/admin/documents')} className="text-blue-600 text-sm font-bold hover:underline mb-2 flex items-center gap-1">
-            &larr; กลับคลังเอกสาร
+        <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <Link href="/admin/documents" className="text-blue-600 hover:text-blue-800 font-medium text-sm flex items-center gap-1 transition-colors">
+            ← กลับคลังเอกสาร
+          </Link>
+          <button 
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg font-bold shadow-sm transition-all text-sm disabled:opacity-50"
+          >
+            {saving ? 'กำลังบันทึก...' : '💾 บันทึก'}
           </button>
-          <h2 className="font-bold text-slate-800 text-lg truncate" title={document?.title}>{document?.title}</h2>
-          <p className="text-xs text-slate-500">ออกแบบโครงสร้างและฟิลด์</p>
+        </div>
+        <div className="p-4">
+          <h2 className="font-bold text-lg text-slate-800 mb-1 line-clamp-1" title={document?.title}>{document?.title}</h2>
+          <p className="text-xs text-slate-500 mb-6">ออกแบบฟิลด์กรอกข้อความและไฟล์</p>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -149,11 +196,36 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
-      {/* Center: Canvas A4 */}
-      <div className="flex-1 overflow-y-auto p-8 flex justify-center pb-32">
-        <div className="w-full max-w-[794px] bg-white min-h-[1123px] shadow-lg border border-slate-300 p-10 flex flex-col gap-4 relative">
+      {/* Center: Canvas A4 or List */}
+      <div className={`flex-1 overflow-y-auto p-8 flex justify-center pb-32 ${isPdf ? 'bg-slate-200' : 'bg-slate-50'}`}>
+        <div className={`w-full relative flex flex-col gap-4 ${isPdf ? 'max-w-[794px] min-h-[1123px] shadow-lg border border-slate-300 bg-white' : 'max-w-3xl'}`}>
           
-          <div className="flex flex-wrap gap-y-4 -mx-2">
+          {isPdf && document?.fileUrl && (
+            <div className="absolute inset-0 z-0 pointer-events-none">
+              <Document 
+                file={document.fileUrl} 
+                onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                className="flex flex-col gap-4"
+              >
+                {Array.from(new Array(numPages || 1), (el, index) => (
+                  <Page 
+                    key={`page_${index + 1}`} 
+                    pageNumber={index + 1} 
+                    renderTextLayer={false} 
+                    renderAnnotationLayer={false}
+                    width={794}
+                    className="shadow-md"
+                  />
+                ))}
+              </Document>
+            </div>
+          )}
+
+          <div 
+            className={`relative z-10 ${isPdf ? 'w-[794px] min-h-[1123px]' : 'flex flex-col gap-4 w-full'}`}
+            onDragOver={isPdf ? (e) => e.preventDefault() : undefined}
+            onDrop={isPdf ? handleDrop : undefined}
+          >
             {blocks.length === 0 ? (
               <div className="w-full h-64 flex flex-col items-center justify-center text-slate-300 border-2 border-dashed border-slate-200 rounded-xl m-2">
                 <span className="text-4xl mb-2">📄</span>
@@ -164,24 +236,28 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
               blocks.map((block, index) => (
                 <div 
                   key={block.id} 
-                  className="px-2 group relative"
-                  style={{ width: block.width }}
+                  className={`group relative ${isPdf ? 'absolute cursor-move' : 'w-full'}`}
+                  style={isPdf ? { left: `${block.x}%`, top: `${block.y}%`, width: block.width } : undefined}
+                  draggable={isPdf}
+                  onDragStart={(e) => handleDragStart(e, block.id)}
                 >
-                  <div className="border border-transparent group-hover:border-blue-200 group-hover:bg-blue-50/30 p-2 -m-2 rounded-lg transition-colors relative">
+                  <div className={`transition-colors relative ${isPdf ? 'border p-2 -m-2 rounded-lg bg-white/80 backdrop-blur-sm border-blue-400 shadow-md' : 'bg-white rounded-xl shadow-sm border border-slate-200 p-4'}`}>
                     
                     {/* Controls overlay */}
-                    <div className="absolute -top-10 right-0 bg-slate-800 text-white rounded-lg px-2 py-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-xl">
-                      <select 
-                        value={block.width}
-                        onChange={(e) => updateBlock(block.id, { width: e.target.value as BlockWidth })}
-                        className="bg-transparent text-xs outline-none cursor-pointer border-r border-slate-600 pr-1"
-                        title="ปรับความกว้าง"
-                      >
-                        <option value="100%" className="text-slate-800">100%</option>
-                        <option value="50%" className="text-slate-800">50%</option>
-                        <option value="33.33%" className="text-slate-800">33%</option>
-                        <option value="25%" className="text-slate-800">25%</option>
-                      </select>
+                    <div className={`absolute bg-slate-800 text-white rounded-lg px-2 py-1 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-xl ${isPdf ? '-top-10 right-0' : 'top-2 right-2'}`}>
+                      {isPdf && (
+                        <select 
+                          value={block.width}
+                          onChange={(e) => updateBlock(block.id, { width: e.target.value as BlockWidth })}
+                          className="bg-transparent text-xs outline-none cursor-pointer border-r border-slate-600 pr-1"
+                          title="ปรับความกว้าง"
+                        >
+                          <option value="100%" className="text-slate-800">100%</option>
+                          <option value="50%" className="text-slate-800">50%</option>
+                          <option value="33.33%" className="text-slate-800">33%</option>
+                          <option value="25%" className="text-slate-800">25%</option>
+                        </select>
+                      )}
                       
                       <button onClick={() => moveBlock(index, -1)} disabled={index === 0} className="p-1 hover:bg-slate-700 rounded disabled:opacity-30" title="เลื่อนขึ้น">↑</button>
                       <button onClick={() => moveBlock(index, 1)} disabled={index === blocks.length - 1} className="p-1 hover:bg-slate-700 rounded disabled:opacity-30" title="เลื่อนลง">↓</button>
@@ -247,7 +323,7 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
                     )}
 
                     {block.type === 'input' && (
-                      <div className="bg-white border border-slate-200 rounded-lg p-3">
+                      <div className="bg-transparent border-none rounded-lg p-3">
                         <input 
                           type="text" 
                           value={block.label} 
@@ -255,7 +331,18 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
                           className="font-bold text-slate-700 text-sm bg-transparent outline-none w-full border-b border-dashed border-slate-300 mb-2 focus:border-blue-400"
                           placeholder="คำถาม / หัวข้อข้อมูล"
                         />
-                        <div className="text-slate-400 text-sm italic bg-slate-50 px-3 py-2 rounded border border-slate-100">ช่องกรอกข้อความ (แสดงเฉพาะตอนพนักงานกรอก)</div>
+                        <div className="text-slate-400 text-sm italic bg-slate-50 px-3 py-2 rounded border border-slate-100 flex justify-between items-center">
+                          <span>ช่องกรอกข้อความ (แสดงเฉพาะตอนพนักงานกรอก)</span>
+                          <select 
+                            value={block.type} 
+                            onChange={(e) => updateBlock(block.id, { type: e.target.value as any })}
+                            className="text-xs border border-slate-200 rounded px-2 py-1 bg-white text-slate-700 cursor-pointer hover:border-blue-300 outline-none"
+                          >
+                            <option value="input">📝 ข้อความ</option>
+                            <option value="date">📅 วันที่</option>
+                            <option value="signature">✍️ ลายเซ็น</option>
+                          </select>
+                        </div>
                         
                         <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col gap-2">
                           <label className="flex items-center gap-2 text-xs text-slate-600">
@@ -280,7 +367,7 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
                     )}
 
                     {block.type === 'date' && (
-                      <div className="bg-white border border-slate-200 rounded-lg p-3">
+                      <div className="bg-transparent border-none rounded-lg p-3">
                         <input 
                           type="text" 
                           value={block.label} 
@@ -288,8 +375,17 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
                           className="font-bold text-slate-700 text-sm bg-transparent outline-none w-full border-b border-dashed border-slate-300 mb-2 focus:border-blue-400"
                           placeholder="ระบุวันที่..."
                         />
-                        <div className="text-slate-400 text-sm italic bg-slate-50 px-3 py-2 rounded border border-slate-100 flex items-center gap-2">
-                          📅 ช่องเลือกวันที่
+                        <div className="text-slate-400 text-sm italic bg-slate-50 px-3 py-2 rounded border border-slate-100 flex justify-between items-center">
+                          <span>📅 ช่องเลือกวันที่</span>
+                          <select 
+                            value={block.type} 
+                            onChange={(e) => updateBlock(block.id, { type: e.target.value as any })}
+                            className="text-xs border border-slate-200 rounded px-2 py-1 bg-white text-slate-700 cursor-pointer hover:border-blue-300 outline-none"
+                          >
+                            <option value="input">📝 ข้อความ</option>
+                            <option value="date">📅 วันที่</option>
+                            <option value="signature">✍️ ลายเซ็น</option>
+                          </select>
                         </div>
                         <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col gap-2">
                           <label className="flex items-center gap-2 text-xs text-slate-600">
@@ -314,15 +410,26 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
                     )}
 
                     {block.type === 'signature' && (
-                      <div className="bg-white border border-slate-200 rounded-lg p-3 h-full flex flex-col justify-between">
+                      <div className="bg-transparent border-none rounded-lg p-3 h-full flex flex-col justify-between">
                         <div>
-                          <input 
-                            type="text" 
-                            value={block.label} 
-                            onChange={(e) => updateBlock(block.id, { label: e.target.value })}
-                            className="font-bold text-slate-700 text-sm bg-transparent outline-none w-full border-b border-dashed border-slate-300 mb-2 focus:border-blue-400 text-center"
-                            placeholder="ตำแหน่งลายเซ็น (เช่น ผู้ขออนุมัติ)"
-                          />
+                          <div className="flex justify-between items-center mb-2">
+                            <input 
+                              type="text" 
+                              value={block.label} 
+                              onChange={(e) => updateBlock(block.id, { label: e.target.value })}
+                              className="font-bold text-slate-700 text-sm bg-transparent outline-none flex-1 border-b border-dashed border-slate-300 focus:border-blue-400"
+                              placeholder="ตำแหน่งลายเซ็น (เช่น ผู้ขออนุมัติ)"
+                            />
+                            <select 
+                              value={block.type} 
+                              onChange={(e) => updateBlock(block.id, { type: e.target.value as any })}
+                              className="text-xs border border-slate-200 rounded px-2 py-1 bg-white text-slate-700 cursor-pointer hover:border-blue-300 outline-none ml-4"
+                            >
+                              <option value="input">📝 ข้อความ</option>
+                              <option value="date">📅 วันที่</option>
+                              <option value="signature">✍️ ลายเซ็น</option>
+                            </select>
+                          </div>
                           <div className="text-slate-300 text-center py-6 text-sm italic border-2 border-dashed border-slate-100 rounded-lg bg-slate-50">
                             ✍️ พื้นที่แสดงลายเซ็น
                           </div>
@@ -352,17 +459,6 @@ export default function DocumentBuilderPage({ params }: { params: Promise<{ id: 
           </div>
           
         </div>
-      </div>
-
-      {/* Floating Save Button */}
-      <div className="fixed bottom-6 right-6 z-20">
-        <button 
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-bold shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all flex items-center gap-2 disabled:opacity-50 disabled:transform-none"
-        >
-          {saving ? 'กำลังบันทึก...' : <>💾 บันทึกแม่แบบเอกสาร</>}
-        </button>
       </div>
 
     </div>
