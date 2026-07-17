@@ -63,6 +63,14 @@ model Workflow {
   responses       WorkflowResponse[]
 }
 
+model SignatureSession {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  status    String   @default("PENDING") // PENDING, COMPLETED
+  imageUrl  String?  @db.Text
+  expiresAt DateTime
+}
+
 model WorkflowStep {
   id           String    @id @default(uuid())
   orderIndex   Int       // 1, 2, 3...

@@ -42,6 +42,49 @@ export async function createWorkflow(data: {
   }
 }
 
+export async function updateWorkflow(id: string, data: {
+  title: string;
+  description?: string;
+  isLoginRequired: boolean;
+  steps: { roleName: string; documentId: string; orderIndex: number }[];
+}) {
+  try {
+    const workflow = await prisma.$transaction(async (tx) => {
+      await tx.workflowStep.deleteMany({ where: { workflowId: id } });
+      return tx.workflow.update({
+        where: { id },
+        data: {
+          title: data.title,
+          description: data.description,
+          isLoginRequired: data.isLoginRequired,
+          steps: {
+            create: data.steps.map(step => ({
+              orderIndex: step.orderIndex,
+              roleName: step.roleName,
+              documentId: step.documentId
+            }))
+          }
+        }
+      });
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        action: 'UPDATE_WORKFLOW',
+        details: `Updated workflow: ${data.title}`,
+        user: 'Admin',
+      }
+    });
+
+    revalidatePath('/admin/forms');
+    revalidatePath('/');
+    return { success: true, workflow };
+  } catch (error: any) {
+    console.error('Error updating workflow:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function getWorkflows() {
   try {
     const workflows = await prisma.workflow.findMany({

@@ -63,7 +63,7 @@ export default function DocumentsPage() {
           const blocks = fields.map((f: string) => ({
             id: `block_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
             type: f.toLowerCase().includes('date') || f.toLowerCase().includes('วัน') ? 'date' : 
-                  f.toLowerCase().includes('sign') || f.toLowerCase().includes('เซ็น') ? 'signature' : 'input',
+                  f.toLowerCase().includes('sign') || f.toLowerCase().includes('เซ็น') || f.includes('ลายมือชื่อ') || f.includes('รายมือชื่อ') ? 'signature' : 'input',
             width: '100%',
             label: f,
             required: false
@@ -219,15 +219,38 @@ export default function DocumentsPage() {
               
               {type === 'file' && (
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1">เลือกไฟล์อ้างอิง</label>
-                  <input 
-                    type="file" 
-                    accept=".pdf,.doc,.docx"
-                    onChange={e => setFile(e.target.files?.[0] || null)}
-                    className="w-full border border-slate-200 rounded-lg px-4 py-2 outline-none focus:border-blue-500 bg-slate-50 text-sm"
-                    required
-                  />
-                  <p className="text-xs text-slate-500 mt-1">รองรับไฟล์ .pdf, .doc, .docx (พนักงานสามารถดาวน์โหลดไปใช้งานได้)</p>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">อัปโหลดไฟล์แม่แบบ (PDF / Word)</label>
+                  <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-blue-300 rounded-xl cursor-pointer bg-blue-50/50 hover:bg-blue-50 hover:border-blue-500 transition-all relative group shadow-sm">
+                    <input 
+                      type="file" 
+                      accept=".pdf,.doc,.docx"
+                      onChange={e => {
+                        const selectedFile = e.target.files?.[0] || null;
+                        setFile(selectedFile);
+                        if (selectedFile && !title) {
+                          const nameWithoutExt = selectedFile.name.replace(/\.[^/.]+$/, "");
+                          setTitle(nameWithoutExt);
+                        }
+                      }}
+                      className="hidden"
+                      required
+                    />
+                    <div className="flex flex-col items-center justify-center text-center px-4">
+                      {file ? (
+                        <>
+                          <div className="text-5xl mb-2 text-green-500 group-hover:scale-110 transition-transform drop-shadow-sm">✅</div>
+                          <p className="mb-1 text-base font-bold text-slate-700 line-clamp-1 max-w-[280px]">{file.name}</p>
+                          <p className="text-sm text-blue-600 font-medium bg-blue-100 px-3 py-1 rounded-full mt-2">คลิกเพื่อเปลี่ยนไฟล์</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-5xl mb-3 text-blue-500 group-hover:-translate-y-2 transition-transform drop-shadow-sm">📂</div>
+                          <p className="mb-1 text-base font-bold text-slate-700">คลิกที่นี่เพื่อเลือกไฟล์แม่แบบ</p>
+                          <p className="text-sm text-slate-500">รองรับไฟล์ .pdf, .doc, .docx</p>
+                        </>
+                      )}
+                    </div>
+                  </label>
                 </div>
               )}
               

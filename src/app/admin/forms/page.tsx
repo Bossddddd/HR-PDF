@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { getWorkflows, createWorkflow, deleteWorkflow } from '@/app/actions/workflows';
+import { getWorkflows, createWorkflow, deleteWorkflow, updateWorkflow } from '@/app/actions/workflows';
 import { getDocuments } from '@/app/actions/documents';
 import { getRoles } from '@/app/actions/roles';
 
@@ -11,6 +11,7 @@ export default function WorkflowsPage() {
   const [loading, setLoading] = useState(true);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isLoginRequired, setIsLoginRequired] = useState(false);
@@ -38,6 +39,28 @@ export default function WorkflowsPage() {
     setLoading(false);
   };
 
+  const handleOpenCreateModal = () => {
+    setEditId(null);
+    setTitle('');
+    setDescription('');
+    setIsLoginRequired(false);
+    setSteps([{ id: Date.now(), roleName: 'ผู้ใช้ทั่วไป (User)', documentId: '' }]);
+    setIsModalOpen(true);
+  };
+
+  const handleEdit = (wf: any) => {
+    setEditId(wf.id);
+    setTitle(wf.title);
+    setDescription(wf.description || '');
+    setIsLoginRequired(wf.isLoginRequired);
+    setSteps(wf.steps.map((s: any) => ({
+      id: s.id || Date.now() + Math.random(),
+      roleName: s.roleName || 'ผู้ใช้ทั่วไป (User)',
+      documentId: s.documentId || ''
+    })));
+    setIsModalOpen(true);
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -56,18 +79,24 @@ export default function WorkflowsPage() {
       documentId: s.documentId
     }));
 
-    const res = await createWorkflow({ title, description, isLoginRequired, steps: formattedSteps });
-    
-    if (res.success) {
-      toast.success('สร้างสายอนุมัติสำเร็จ');
-      loadData();
-      setIsModalOpen(false);
-      setTitle('');
-      setDescription('');
-      setIsLoginRequired(false);
-      setSteps([{ id: Date.now(), roleName: 'ผู้ใช้ทั่วไป (User)', documentId: '' }]);
+    if (editId) {
+      const res = await updateWorkflow(editId, { title, description, isLoginRequired, steps: formattedSteps });
+      if (res.success) {
+        toast.success('แก้ไขสายอนุมัติสำเร็จ');
+        loadData();
+        setIsModalOpen(false);
+      } else {
+        toast.error(res.error || 'เกิดข้อผิดพลาดในการแก้ไข');
+      }
     } else {
-      toast.error(res.error || 'เกิดข้อผิดพลาด');
+      const res = await createWorkflow({ title, description, isLoginRequired, steps: formattedSteps });
+      if (res.success) {
+        toast.success('สร้างสายอนุมัติสำเร็จ');
+        loadData();
+        setIsModalOpen(false);
+      } else {
+        toast.error(res.error || 'เกิดข้อผิดพลาดในการสร้าง');
+      }
     }
     setIsSubmitting(false);
   };
@@ -92,7 +121,7 @@ export default function WorkflowsPage() {
           <p className="text-slate-500 mt-2">ผูกแม่แบบเอกสารเข้ากับลำดับขั้นการอนุมัติ</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleOpenCreateModal}
           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold shadow-sm transition-all"
         >
           + สร้างสายอนุมัติใหม่
@@ -115,12 +144,22 @@ export default function WorkflowsPage() {
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${wf.isLoginRequired ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
                   {wf.isLoginRequired ? 'บังคับล็อกอิน' : 'กรอกได้ทุกคน'}
                 </span>
-                <button 
-                  className="text-slate-400 hover:text-red-600 transition-colors p-1" 
-                  onClick={() => setDeleteTarget({ id: wf.id, title: wf.title })}
-                >
-                  ✕
-                </button>
+                <div className="flex gap-1">
+                  <button 
+                    className="text-slate-400 hover:text-blue-600 transition-colors p-1" 
+                    onClick={() => handleEdit(wf)}
+                    title="แก้ไขสายอนุมัติ"
+                  >
+                    ✏️
+                  </button>
+                  <button 
+                    className="text-slate-400 hover:text-red-600 transition-colors p-1" 
+                    onClick={() => setDeleteTarget({ id: wf.id, title: wf.title })}
+                    title="ลบสายอนุมัติ"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
               
               <h2 className="text-xl font-bold text-slate-800 mb-2 line-clamp-2" title={wf.title}>{wf.title}</h2>
@@ -174,7 +213,7 @@ export default function WorkflowsPage() {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex justify-between items-center z-10">
-              <h3 className="font-bold text-xl text-slate-800">สร้างสายอนุมัติใหม่</h3>
+              <h3 className="font-bold text-xl text-slate-800">{editId ? 'แก้ไขสายอนุมัติ' : 'สร้างสายอนุมัติใหม่'}</h3>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
             </div>
             
@@ -234,7 +273,7 @@ export default function WorkflowsPage() {
                         <div>
                           <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">ผู้รับผิดชอบ (Role)</label>
                           <select 
-                            value={step.roleName}
+                            value={step.roleName || ''}
                             onChange={(e) => {
                               const newSteps = [...steps];
                               newSteps[index].roleName = e.target.value;
@@ -257,7 +296,7 @@ export default function WorkflowsPage() {
                         <div>
                           <label className="block text-xs font-bold text-slate-500 mb-1 uppercase tracking-wider">ใช้เอกสาร (Document)</label>
                           <select 
-                            value={step.documentId}
+                            value={step.documentId || ''}
                             onChange={(e) => {
                               const newSteps = [...steps];
                               newSteps[index].documentId = e.target.value;
