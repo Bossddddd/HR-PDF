@@ -5,6 +5,7 @@ import Header from "@/components/Header";
 import { Toaster } from "sonner";
 import { RoleProvider } from "@/app/context/RoleContext";
 import RoleSwitcher from "@/components/RoleSwitcher";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
           <Header />
           {children}
           <RoleSwitcher />
+          <Analytics />
         </RoleProvider>
       </body>
     </html>

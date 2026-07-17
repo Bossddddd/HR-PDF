@@ -13,6 +13,7 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@types/react-signature-canvas": "^1.0.7",
+    "@vercel/analytics": "^2.0.1",
     "@vercel/blob": "^2.6.1",
     "docxtemplater": "^3.69.0",
     "dotenv": "^17.4.2",

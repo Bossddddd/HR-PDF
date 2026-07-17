@@ -52,7 +52,7 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
     
     // Always pre-generate session for QR code
     const res = await createSignatureSession();
-    if (res.success) {
+    if (res.success && res.sessionId) {
       setSessionId(res.sessionId);
     } else {
       toast.error('ไม่สามารถสร้างเซสชันสำหรับเซ็นชื่อได้');

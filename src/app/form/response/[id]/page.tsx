@@ -40,15 +40,16 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
     
     // Save updated data (signatures)
     const dataStr = JSON.stringify(formData);
-    await updateResponseData(responseId, dataStr, role, `ลงนามโดย ${role}`);
+    const actorRole = role ? String(role) : 'System';
+    await updateResponseData(responseId, dataStr, actorRole, `ลงนามโดย ${actorRole}`);
 
     // Advance workflow status based on current role
     let nextStatus = 'อนุมัติแล้ว';
-    if (response.status === 'รอตรวจสอบ' && role === 'หัวหน้างาน / HR') {
+    if (response.status === 'รอตรวจสอบ' && actorRole === 'หัวหน้างาน / HR') {
       nextStatus = 'รอผู้จัดการอนุมัติ';
-    } else if (response.status === 'รอผู้จัดการอนุมัติ' && role === 'ผู้จัดการ (Manager)') {
+    } else if (response.status === 'รอผู้จัดการอนุมัติ' && actorRole === 'ผู้จัดการ (Manager)') {
       nextStatus = 'รอผู้บริหารเซ็น';
-    } else if (response.status === 'รอผู้บริหารเซ็น' && role === 'ผู้บริหาร (Executive)') {
+    } else if (response.status === 'รอผู้บริหารเซ็น' && actorRole === 'ผู้บริหาร (Executive)') {
       nextStatus = 'อนุมัติแล้ว';
     }
 
