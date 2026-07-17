@@ -24,7 +24,7 @@ export default function DocumentsPage() {
     setIsLoading(true);
     const res = await getDocuments();
     if (res.success) {
-      setDocuments(res.documents);
+      setDocuments(res.documents || []);
     } else {
       toast.error('โหลดข้อมูลล้มเหลว');
     }
