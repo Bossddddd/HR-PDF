@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useEffect, use, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { getResponseById, updateResponseStatus, updateResponseData } from '@/app/actions/responses';
 import { useRole } from '@/app/context/RoleContext';
 
-export default function ReviewFormPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ReviewFormPage() {
   const router = useRouter();
-  const resolvedParams = use(params);
-  const responseId = resolvedParams.id;
+  const params = useParams();
+  const responseId = params.id as string;
   const { role } = useRole();
   
   const [response, setResponse] = useState<any>(null);
