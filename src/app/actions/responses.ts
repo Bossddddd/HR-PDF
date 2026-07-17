@@ -5,11 +5,11 @@ import { revalidatePath } from 'next/cache';
 
 export async function getResponses() {
   try {
-    const responses = await prisma.formResponse.findMany({
+    const responses = await prisma.workflowResponse.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        formTemplate: {
-          select: { title: true, workflowJson: true }
+        workflow: {
+          select: { title: true }
         }
       }
     });
@@ -19,12 +19,22 @@ export async function getResponses() {
     return { success: false, responses: [] };
   }
 }
+
 export async function getResponseById(id: string) {
   try {
-    const response = await prisma.formResponse.findUnique({
+    const response = await prisma.workflowResponse.findUnique({
       where: { id },
       include: {
-        formTemplate: true
+        workflow: {
+          include: {
+            steps: {
+              include: {
+                document: true
+              },
+              orderBy: { orderIndex: 'asc' }
+            }
+          }
+        }
       }
     });
     return { success: true, response };
@@ -36,17 +46,17 @@ export async function getResponseById(id: string) {
 
 export async function updateResponseStatus(id: string, newStatus: string) {
   try {
-    const response = await prisma.formResponse.update({
+    const response = await prisma.workflowResponse.update({
       where: { id },
       data: { status: newStatus },
-      include: { formTemplate: true }
+      include: { workflow: true }
     });
 
     await prisma.auditLog.create({
       data: {
         action: 'UPDATE_STATUS',
-        details: `Updated document status to [${newStatus}] for ${response.formTemplate.title} (by ${response.submitterName})`,
-        user: 'Admin',
+        details: `Updated document status to [${newStatus}] for ${response.workflow.title} (by ${response.submitterName})`,
+        user: 'System',
       }
     });
 
@@ -60,7 +70,7 @@ export async function updateResponseStatus(id: string, newStatus: string) {
 
 export async function updateResponseData(id: string, newDataJson: string, actorName: string, actionDesc: string) {
   try {
-    const updated = await prisma.formResponse.update({
+    const updated = await prisma.workflowResponse.update({
       where: { id },
       data: { dataJson: newDataJson }
     });
@@ -84,15 +94,15 @@ export async function updateResponseData(id: string, newDataJson: string, actorN
 
 export async function deleteResponse(id: string) {
   try {
-    const deleted = await prisma.formResponse.delete({
+    const deleted = await prisma.workflowResponse.delete({
       where: { id },
-      include: { formTemplate: true }
+      include: { workflow: true }
     });
 
     await prisma.auditLog.create({
       data: {
         action: 'DELETE_RESPONSE',
-        details: `ลบเอกสาร ${deleted.formTemplate.title} ของ ${deleted.submitterName}`,
+        details: `Deleted response ${deleted.workflow.title} from ${deleted.submitterName}`,
         user: 'Admin',
       }
     });

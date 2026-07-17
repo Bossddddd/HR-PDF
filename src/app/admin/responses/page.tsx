@@ -146,7 +146,7 @@ export default function ResponsesPage() {
               </div>
               
               <div className="flex-1 bg-slate-50 rounded-xl p-4 mb-4">
-                <div className="text-sm font-semibold text-slate-700 mb-1 line-clamp-1">{res.formTemplate?.title}</div>
+                <div className="text-sm font-semibold text-slate-700 mb-1 line-clamp-1">{res.workflow?.title}</div>
                 <div className="text-xs text-slate-500 flex items-center gap-1">
                   📅 {new Date(res.createdAt).toLocaleString('th-TH')}
                 </div>
@@ -185,7 +185,7 @@ export default function ResponsesPage() {
                 {kanbanData[status].map(res => (
                   <div key={res.id} onClick={() => router.push(`/form/response/${res.id}`)} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer group">
                     <div className="flex justify-between items-start mb-3">
-                      <div className="text-sm font-bold text-slate-800 line-clamp-2">{res.formTemplate?.title}</div>
+                      <div className="text-sm font-bold text-slate-800 line-clamp-2">{res.workflow?.title}</div>
                     </div>
                     
                     <div className="flex items-center gap-2 mb-4">

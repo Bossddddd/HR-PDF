@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, use, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { getResponseById, updateResponseStatus, updateResponseData } from '@/app/actions/responses';
@@ -77,11 +77,47 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">กำลังโหลดเอกสาร...</div>;
-  if (!response || !response.formTemplate) return <div className="min-h-screen flex items-center justify-center bg-slate-50">ไม่พบเอกสาร 404</div>;
+  if (!response || !response.workflow) return <div className="min-h-screen flex items-center justify-center bg-slate-50">ไม่พบเอกสาร 404</div>;
 
-  const form = response.formTemplate;
-  const blocks = form.blocksJson ? JSON.parse(form.blocksJson) : [];
+  const form = response.workflow;
   const isReadOnly = response.status === 'อนุมัติแล้ว' || response.status === 'ตีกลับ';
+
+  // Extract fields from all documents in the workflow
+  const { allFields, attachedFiles } = useMemo(() => {
+    const fields: any[] = [];
+    const files: any[] = [];
+    if (!form) return { allFields: fields, attachedFiles: files };
+    
+    const fieldKeys = new Set<string>();
+    form.steps?.forEach((step: any) => {
+      if (step.document) {
+        if (step.document.contentJson) {
+          try {
+            const blocks = JSON.parse(step.document.contentJson);
+            blocks.forEach((block: any) => {
+              const key = block.type === 'heading' || block.type === 'paragraph' || block.type === 'image' ? block.id : (block.label || block.id);
+              if (!fieldKeys.has(key)) {
+                fieldKeys.add(key);
+                fields.push({ ...block, stepRole: step.roleName, docTitle: step.document.title });
+              }
+            });
+          } catch (e) {
+            console.error('Error parsing document content', e);
+          }
+        }
+        
+        if (step.document.type === 'file' && step.document.fileUrl) {
+          files.push({
+            id: step.document.id,
+            title: step.document.title,
+            url: step.document.fileUrl,
+            stepRole: step.roleName
+          });
+        }
+      }
+    });
+    return { allFields: fields, attachedFiles: files };
+  }, [form]);
 
   return (
     <div className="min-h-screen bg-slate-100 py-12 px-4 font-sans text-slate-900">
@@ -113,11 +149,11 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
           </div>
 
           <div className="flex-1 flex flex-col gap-6 pointer-events-auto">
-            {blocks.map((block: any) => {
+            {allFields.map((block: any) => {
               if (block.type === 'heading') return <h2 key={block.id} className="text-2xl font-bold text-slate-800 mt-4">{block.content}</h2>;
               if (block.type === 'paragraph') return <p key={block.id} className="text-slate-600 leading-relaxed whitespace-pre-wrap">{block.content}</p>;
               
-              const isMyRole = block.assignedRole === role && !isReadOnly;
+              const isMyRole = (!block.assignedRole || block.assignedRole === 'ผู้ใช้ทั่วไป (User)' || block.stepRole === role) && !isReadOnly;
               const hasData = !!formData[block.id];
 
               if (block.type === 'input') {
@@ -125,7 +161,7 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
                   <div key={block.id} className="w-full">
                     <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
                       {block.label}
-                      {block.assignedRole && <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'}`}>({block.assignedRole})</span>}
+                      <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'}`}>({block.assignedRole || block.stepRole})</span>
                     </label>
                     <input 
                       type="text" 
@@ -139,12 +175,31 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
                 );
               }
 
+              if (block.type === 'textarea') {
+                return (
+                  <div key={block.id} className="w-full">
+                    <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
+                      {block.label}
+                      <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'}`}>({block.assignedRole || block.stepRole})</span>
+                    </label>
+                    <textarea 
+                      disabled={!isMyRole}
+                      value={formData[block.id] || ''}
+                      onChange={(e) => handleChange(block.id, e.target.value)}
+                      placeholder={isMyRole ? "กรุณากรอกข้อมูลเพื่อประเมิน..." : ""}
+                      rows={3}
+                      className={`w-full border rounded-lg px-4 py-3 outline-none transition-colors resize-none ${isMyRole ? 'bg-indigo-50 border-indigo-200 focus:border-indigo-500 font-semibold' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                    />
+                  </div>
+                );
+              }
+
               if (block.type === 'date') {
                 return (
                   <div key={block.id} className="w-full sm:w-1/2">
                     <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
                       {block.label}
-                      {block.assignedRole && <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'}`}>({block.assignedRole})</span>}
+                      <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'}`}>({block.assignedRole || block.stepRole})</span>
                     </label>
                     <input 
                       type="date" 
@@ -163,7 +218,7 @@ export default function ReviewFormPage({ params }: { params: Promise<{ id: strin
                     <div className="w-full sm:w-64 flex flex-col">
                       <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
                         {block.label}
-                        {block.assignedRole && <span className="ml-2 text-xs font-normal">สำหรับ: {block.assignedRole}</span>}
+                        <span className="ml-2 text-xs font-normal">สำหรับ: {block.assignedRole || block.stepRole}</span>
                       </label>
                       <input 
                         type="text" 

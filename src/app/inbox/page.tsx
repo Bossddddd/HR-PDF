@@ -126,7 +126,7 @@ export default function InboxPage() {
                         <span className="text-xs text-slate-400">{new Date(item.createdAt).toLocaleString('th-TH')}</span>
                       </div>
                       <h3 className="font-bold text-slate-800 text-base md:text-lg">
-                        {item.formTemplate?.title || 'เอกสารไม่มีชื่อ'}
+                        {item.workflow?.title || 'เอกสารไม่ระบุชื่อ'}
                       </h3>
                       <p className="text-sm text-slate-500">
                         ส่งโดย: <span className="font-semibold text-slate-700">{item.submitterName}</span>
