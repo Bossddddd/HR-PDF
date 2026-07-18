@@ -16,6 +16,8 @@ export default function ReviewFormPage() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadResponse() {
@@ -77,6 +79,91 @@ export default function ReviewFormPage() {
     }
   };
 
+  const handlePrintPdf = async () => {
+    setIsPrinting(true);
+    try {
+      toast.loading('กำลังเตรียมไฟล์ PDF สำหรับพิมพ์...', { id: 'print-loading' });
+      
+      const hasDocx = response.workflow?.steps?.some((s: any) => s.document?.type === 'file' && s.document?.fileUrl?.toLowerCase().includes('.docx'));
+      const url = hasDocx ? `/api/export-document?responseId=${response.id}&format=pdf` : `/api/export-document?responseId=${response.id}`;
+      
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to generate PDF');
+      
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = blobUrl;
+      
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          toast.dismiss('print-loading');
+          
+          setTimeout(() => {
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+              URL.revokeObjectURL(blobUrl);
+            }
+          }, 60000);
+        }, 1000);
+      };
+      
+      document.body.appendChild(iframe);
+    } catch (err) {
+      console.error(err);
+      toast.dismiss('print-loading');
+      toast.error('เกิดข้อผิดพลาดในการเตรียมเอกสารเพื่อพิมพ์');
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  const handleDownload = async (format: string, originalFileName?: string) => {
+    setIsDownloading(format);
+    const toastId = toast.loading(`กำลังเตรียมไฟล์ ${format.toUpperCase()}...`);
+    try {
+      const url = `/api/export-document?responseId=${response.id}&format=${format}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to download');
+      
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = blobUrl;
+      
+      let filename = `document-${response.id}.${format}`;
+      const disposition = res.headers.get('Content-Disposition');
+      if (disposition && disposition.includes('filename=')) {
+        const match = disposition.match(/filename="(.+)"/);
+        if (match && match[1]) filename = match[1];
+      } else if (originalFileName) {
+        filename = originalFileName.replace(/\.[^/.]+$/, "") + `.${format}`;
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+      }, 1000);
+      
+      toast.success(`ดาวน์โหลดไฟล์ ${format.toUpperCase()} สำเร็จ`, { id: toastId });
+    } catch (err) {
+      console.error(err);
+      toast.error(`เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์ ${format.toUpperCase()}`, { id: toastId });
+    } finally {
+      setIsDownloading(null);
+    }
+  };
+
   // Extract fields from all documents in the workflow
   const { allFields, attachedFiles } = useMemo(() => {
     const fields: any[] = [];
@@ -129,23 +216,23 @@ export default function ReviewFormPage() {
             &larr; กลับ
           </button>
           <div className="flex gap-2">
-            <button onClick={() => window.print()} className="text-indigo-600 font-bold bg-indigo-50 px-4 py-2 rounded-lg hover:bg-indigo-100 flex items-center gap-2 transition-colors">
-              🖨️ พิมพ์ (Print)
+            <button onClick={handlePrintPdf} disabled={isPrinting} className={`font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${isPrinting ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'text-indigo-600 bg-indigo-50 hover:bg-indigo-100'}`}>
+              {isPrinting ? '⏳ กำลังเตรียม...' : '🖨️ พิมพ์ (Print)'}
             </button>
             {response.workflow?.steps?.some((s: any) => s.document?.type === 'file' && s.document?.fileUrl?.toLowerCase().includes('.pdf')) && (
-              <a href={`/api/export-document?responseId=${response.id}`} target="_blank" rel="noopener noreferrer" className="text-white font-bold bg-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2 transition-colors">
-                📥 ดาวน์โหลด (PDF)
-              </a>
+              <button onClick={() => handleDownload('pdf', response.workflow?.steps?.find((s: any) => s.document?.type === 'file')?.document?.title)} disabled={isDownloading !== null} className={`font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${isDownloading === 'pdf' ? 'bg-indigo-400 text-white cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
+                {isDownloading === 'pdf' ? '⏳ กำลังเตรียม...' : '📥 ดาวน์โหลด (PDF)'}
+              </button>
             )}
             
             {response.workflow?.steps?.some((s: any) => s.document?.type === 'file' && s.document?.fileUrl?.toLowerCase().includes('.docx')) && (
               <>
-                <a href={`/api/export-document?responseId=${response.id}&format=docx`} target="_blank" rel="noopener noreferrer" className="text-white font-bold bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 transition-colors shadow-sm">
-                  📥 ดาวน์โหลด (Word)
-                </a>
-                <a href={`/api/export-document?responseId=${response.id}&format=pdf`} target="_blank" rel="noopener noreferrer" className="text-white font-bold bg-red-600 px-4 py-2 rounded-lg hover:bg-red-700 flex items-center gap-2 transition-colors shadow-sm" title="⚠️ ฟีเจอร์แปลง PDF อาจจะไม่ทำงานบนระบบ Vercel">
-                  📥 ดาวน์โหลด (PDF)
-                </a>
+                <button onClick={() => handleDownload('docx', response.workflow?.steps?.find((s: any) => s.document?.type === 'file')?.document?.title)} disabled={isDownloading !== null} className={`font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm ${isDownloading === 'docx' ? 'bg-blue-400 text-white cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+                  {isDownloading === 'docx' ? '⏳ กำลังเตรียม...' : '📥 ดาวน์โหลด (Word)'}
+                </button>
+                <button onClick={() => handleDownload('pdf', response.workflow?.steps?.find((s: any) => s.document?.type === 'file')?.document?.title)} disabled={isDownloading !== null} className={`font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm ${isDownloading === 'pdf' ? 'bg-red-400 text-white cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}`} title="⚠️ ฟีเจอร์แปลง PDF อาจจะไม่ทำงานบนระบบ Vercel">
+                  {isDownloading === 'pdf' ? '⏳ กำลังเตรียม...' : '📥 ดาวน์โหลด (PDF)'}
+                </button>
               </>
             )}
           </div>

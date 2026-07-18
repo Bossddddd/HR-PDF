@@ -196,7 +196,14 @@ export async function GET(request: NextRequest) {
       xmlFilesToPatch.forEach(filePath => {
         if (docZip.files[filePath]) {
           let content = docZip.files[filePath].asText();
+          const beforeCount = (content.match(/thaiDistribute/g) || []).length;
+          // แก้ทุก pattern ที่เป็นไปได้ของ thaiDistribute alignment
+          content = content.replace(/w:val="thaiDistribute"/g, 'w:val="both"');
           content = content.replace(/"thaiDistribute"/g, '"both"');
+          // ลบ textAlignment ที่อาจทำให้ LibreOffice จัด spacing ผิด
+          content = content.replace(/<w:textAlignment[^/]*\/>/g, '');
+          const afterCount = (content.match(/thaiDistribute/g) || []).length;
+          console.log(`[XML Patch] ${filePath}: thaiDistribute ${beforeCount} -> ${afterCount}`);
           docZip.file(filePath, content);
         }
       });
