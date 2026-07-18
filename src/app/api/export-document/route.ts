@@ -76,6 +76,7 @@ export async function GET(request: NextRequest) {
       // Import here to avoid loading if not needed
       const PizZip = (await import('pizzip')).default;
       const Docxtemplater = (await import('docxtemplater')).default;
+      // @ts-ignore
       const ImageModule = (await import('docxtemplater-image-module-free')).default || require('docxtemplater-image-module-free');
 
       // docxtemplater uses {tag}, our formData keys might be 'วัน' if the field label is 'วัน'
