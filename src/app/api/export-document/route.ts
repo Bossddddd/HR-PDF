@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
           const converterUrl = process.env.PDF_CONVERTER_URL || 'http://localhost:3001/api/convert-to-pdf';
           
           const formData = new FormData();
-          formData.append('document', new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), `document-${response.id}.docx`);
+          formData.append('document', new Blob([buf as any], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), `document-${response.id}.docx`);
 
           const convertRes = await fetch(converterUrl, {
             method: 'POST',
