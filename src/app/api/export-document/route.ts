@@ -268,7 +268,7 @@ export async function GET(request: NextRequest) {
 
       const finalPdfBytes = await pdfDoc.save();
 
-      return new NextResponse(finalPdfBytes, {
+      return new NextResponse(finalPdfBytes as any, {
         status: 200,
         headers: {
           'Content-Type': 'application/pdf',
