@@ -191,19 +191,20 @@ export async function GET(request: NextRequest) {
       const docZip = doc.getZip();
       
       // --- FIX DOCX XML ก่อนส่งแปลง PDF ---
-      // Fix LibreOffice Thai Distributed alignment bug (gaps between characters)
-      const xmlFilesToPatch = ['word/document.xml', 'word/fontTable.xml', 'word/styles.xml'];
+      // LibreOffice บน Docker ไม่มี Thai word-breaking library (libthai)
+      // ทำให้ justify (both) กระจายตัวอักษรไทยออกจากกันผิดปกติ
+      // แก้โดยเปลี่ยน both → left เพื่อให้ข้อความชิดซ้ายแทน
+      const xmlFilesToPatch = ['word/document.xml', 'word/styles.xml'];
       xmlFilesToPatch.forEach(filePath => {
         if (docZip.files[filePath]) {
           let content = docZip.files[filePath].asText();
-          const beforeCount = (content.match(/thaiDistribute/g) || []).length;
-          // แก้ทุก pattern ที่เป็นไปได้ของ thaiDistribute alignment
-          content = content.replace(/w:val="thaiDistribute"/g, 'w:val="both"');
-          content = content.replace(/"thaiDistribute"/g, '"both"');
-          // ลบ textAlignment ที่อาจทำให้ LibreOffice จัด spacing ผิด
+          // เปลี่ยน thaiDistribute → left
+          content = content.replace(/w:val="thaiDistribute"/g, 'w:val="left"');
+          // เปลี่ยน justify (both) → left เพื่อป้องกัน LibreOffice กระจายตัวอักษร
+          content = content.replace(/w:val="both"/g, 'w:val="left"');
+          // ลบ textAlignment ที่อาจทำให้ spacing ผิด
           content = content.replace(/<w:textAlignment[^/]*\/>/g, '');
-          const afterCount = (content.match(/thaiDistribute/g) || []).length;
-          console.log(`[XML Patch] ${filePath}: thaiDistribute ${beforeCount} -> ${afterCount}`);
+          console.log(`[XML Patch] ${filePath}: patched alignment to left`);
           docZip.file(filePath, content);
         }
       });
