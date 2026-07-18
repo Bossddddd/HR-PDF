@@ -214,7 +214,7 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      return new NextResponse(buf, {
+      return new NextResponse(buf as any, {
         status: 200,
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
