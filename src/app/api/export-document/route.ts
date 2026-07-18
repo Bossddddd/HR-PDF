@@ -56,10 +56,24 @@ export async function GET(request: NextRequest) {
     }
 
     // Download the original document from fileUrl
-    const absoluteFileUrl = docRecord.fileUrl.startsWith('/') 
-      ? new URL(docRecord.fileUrl, request.nextUrl.origin).toString() 
-      : docRecord.fileUrl;
-    const fileBytesRes = await fetch(absoluteFileUrl);
+    let targetDownloadUrl = docRecord.fileUrl;
+    // Extract actual Vercel Blob URL if it's using our proxy
+    if (targetDownloadUrl.startsWith('/api/file?url=')) {
+      targetDownloadUrl = decodeURIComponent(targetDownloadUrl.replace('/api/file?url=', ''));
+    } else if (targetDownloadUrl.startsWith('/')) {
+      targetDownloadUrl = new URL(targetDownloadUrl, request.nextUrl.origin).toString();
+    }
+
+    const fileBytesRes = await fetch(targetDownloadUrl, {
+      headers: {
+        Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+      },
+    });
+    
+    if (!fileBytesRes.ok) {
+      return NextResponse.json({ success: false, error: `Failed to download template file (HTTP ${fileBytesRes.status})` }, { status: 400 });
+    }
+    
     const fileBytes = await fileBytesRes.arrayBuffer();
 
     // Parse form data
