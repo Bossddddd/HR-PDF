@@ -188,7 +188,21 @@ export async function GET(request: NextRequest) {
 
       doc.render(mappedData);
 
-      const buf = doc.getZip().generate({
+      const docZip = doc.getZip();
+      
+      // --- FIX DOCX XML ก่อนส่งแปลง PDF ---
+      // Fix LibreOffice Thai Distributed alignment bug (gaps between characters)
+      const xmlFilesToPatch = ['word/document.xml', 'word/fontTable.xml', 'word/styles.xml'];
+      xmlFilesToPatch.forEach(filePath => {
+        if (docZip.files[filePath]) {
+          let content = docZip.files[filePath].asText();
+          content = content.replace(/"thaiDistribute"/g, '"both"');
+          docZip.file(filePath, content);
+        }
+      });
+      // -----------------------------------------------------------
+
+      const buf = docZip.generate({
         type: 'nodebuffer',
         compression: 'DEFLATE',
       });
