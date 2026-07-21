@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
           return Buffer.from('');
         },
         getSize: function(img: any, tagValue: string, tagName: string) {
-          return [120, 40]; // Width, Height in pixels
+          return [200, 67]; // Width, Height in pixels (larger for clearer signatures)
         }
       };
       const imageModule = new ImageModule(imageOpts);
