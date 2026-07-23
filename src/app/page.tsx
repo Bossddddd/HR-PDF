@@ -90,16 +90,34 @@ export default function Home() {
                         >
                           เริ่มกรอกฟอร์ม &rarr;
                         </Link>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(`http://localhost:3000/form/${f.id}`);
-                            toast.success('คัดลอกลิงก์สำเร็จ', { description: `http://localhost:3000/form/${f.id}` });
-                          }}
-                          className="w-full text-center bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 py-2 px-4 rounded-xl font-medium border border-slate-200 transition-colors duration-200"
-                        >
-                          🔗 คัดลอกลิงก์
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const link = `${window.location.origin}/form/${f.id}`;
+                              navigator.clipboard.writeText(link);
+                              toast.success('คัดลอกลิงก์สำเร็จ', { description: 'ลิงก์พร้อมสำหรับการวาง' });
+                            }}
+                            className="flex-1 text-center bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 py-2 px-2 rounded-xl text-sm font-medium border border-slate-200 transition-colors duration-200 flex items-center justify-center gap-1"
+                          >
+                            <span>🔗</span> <span className="hidden sm:inline">คัดลอก</span>
+                          </button>
+                          {typeof navigator !== 'undefined' && navigator.share && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigator.share({
+                                  title: f.title,
+                                  text: `กรุณากรอกแบบฟอร์ม: ${f.title}`,
+                                  url: `${window.location.origin}/form/${f.id}`
+                                }).catch(err => console.log('Share error:', err));
+                              }}
+                              className="flex-1 text-center bg-blue-50 text-blue-600 hover:bg-blue-100 py-2 px-2 rounded-xl text-sm font-medium border border-blue-100 transition-colors duration-200 flex items-center justify-center gap-1"
+                            >
+                              <span>📤</span> แชร์
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
