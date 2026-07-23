@@ -112,59 +112,7 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
     loadForm();
   }, [workflowId, user]);
 
-  // Auto-fill dates for current user's role
-  useEffect(() => {
-    if (allFields.length > 0) {
-      const now = new Date();
-      const thaiMonths = [
-        "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
-        "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
-      ];
-      
-      const day = now.getDate().toString();
-      const monthStr = thaiMonths[now.getMonth()];
-      const yearBE = (now.getFullYear() + 543).toString();
-      
-      // Calculate local YYYY-MM-DD to avoid timezone issues
-      const tzOffset = now.getTimezoneOffset() * 60000;
-      const localISOTime = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
-      const yyyyMmDd = localISOTime;
 
-      setFormData(prev => {
-        let updated = { ...prev };
-        let changed = false;
-
-        allFields.forEach(field => {
-          const isMyRole = !field.assignedRole || field.assignedRole === 'ผู้ใช้ทั่วไป (User)' || field.stepRole === 'ผู้ใช้ทั่วไป (User)';
-          if (!isMyRole) return; // Only auto-fill for the current user's role
-
-          // If already filled, don't overwrite
-          if (updated[field.id]) return;
-
-          const label = field.label || field.id;
-          const cleanLabel = label.startsWith('%') ? label.substring(1) : label;
-
-          if (field.type === 'date' || cleanLabel.includes('วัน/เดือน/ปี ที่ลงนาม')) {
-             updated[field.id] = yyyyMmDd;
-             changed = true;
-          } else if (field.type === 'input') {
-             if (cleanLabel === 'วันที่') {
-               updated[field.id] = day;
-               changed = true;
-             } else if (cleanLabel === 'เดือน') {
-               updated[field.id] = monthStr;
-               changed = true;
-             } else if (cleanLabel === 'ปี' || cleanLabel === 'ปีพ.ศ.' || cleanLabel === 'ปี พ.ศ.') {
-               updated[field.id] = yearBE;
-               changed = true;
-             }
-          }
-        });
-
-        return changed ? updated : prev;
-      });
-    }
-  }, [allFields]);
 
   const handleChange = (fieldId: string, value: string) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }));
@@ -242,6 +190,60 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
     });
     return { allFields: fields, attachedFiles: files };
   }, [workflow]);
+
+  // Auto-fill dates for current user's role
+  useEffect(() => {
+    if (allFields.length > 0) {
+      const now = new Date();
+      const thaiMonths = [
+        "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+        "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+      ];
+      
+      const day = now.getDate().toString();
+      const monthStr = thaiMonths[now.getMonth()];
+      const yearBE = (now.getFullYear() + 543).toString();
+      
+      // Calculate local YYYY-MM-DD to avoid timezone issues
+      const tzOffset = now.getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
+      const yyyyMmDd = localISOTime;
+
+      setFormData(prev => {
+        let updated = { ...prev };
+        let changed = false;
+
+        allFields.forEach(field => {
+          const isMyRole = !field.assignedRole || field.assignedRole === 'ผู้ใช้ทั่วไป (User)' || field.stepRole === 'ผู้ใช้ทั่วไป (User)';
+          if (!isMyRole) return; // Only auto-fill for the current user's role
+
+          // If already filled, don't overwrite
+          if (updated[field.id]) return;
+
+          const label = field.label || field.id;
+          const cleanLabel = label.startsWith('%') ? label.substring(1) : label;
+
+          if (field.type === 'date' || cleanLabel.includes('วัน/เดือน/ปี ที่ลงนาม')) {
+             updated[field.id] = yyyyMmDd;
+             changed = true;
+          } else if (field.type === 'input') {
+             if (cleanLabel === 'วันที่') {
+               updated[field.id] = day;
+               changed = true;
+             } else if (cleanLabel === 'เดือน') {
+               updated[field.id] = monthStr;
+               changed = true;
+             } else if (cleanLabel === 'ปี' || cleanLabel === 'ปีพ.ศ.' || cleanLabel === 'ปี พ.ศ.') {
+               updated[field.id] = yearBE;
+               changed = true;
+             }
+          }
+        });
+
+        return changed ? updated : prev;
+      });
+    }
+  }, [allFields]);
 
   const pdfFile = attachedFiles.find(f => f.url?.toLowerCase().includes('.pdf'));
   const isPdfMode = !!pdfFile;
