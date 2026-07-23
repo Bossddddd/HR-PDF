@@ -49,14 +49,14 @@ export default function MobileSignaturePage({ params }: { params: Promise<{ sess
 
     setIsSaving(true);
     const rawCanvas = sigCanvas.current.getTrimmedCanvas();
-    // สร้าง canvas ขนาดมาตรฐานเดียวกับ DOCX export (200x67 pixels)
+    // สร้าง canvas ขนาดมาตรฐานเดียวกับ DOCX export (160x54 pixels)
     const standardCanvas = document.createElement('canvas');
-    standardCanvas.width = 200;
-    standardCanvas.height = 67;
+    standardCanvas.width = 160;
+    standardCanvas.height = 54;
     const ctx = standardCanvas.getContext('2d')!;
-    const scale = Math.min(200 / rawCanvas.width, 67 / rawCanvas.height);
-    const dx = (200 - rawCanvas.width * scale) / 2;
-    const dy = (67 - rawCanvas.height * scale) / 2;
+    const scale = Math.min(160 / rawCanvas.width, 54 / rawCanvas.height);
+    const dx = (160 - rawCanvas.width * scale) / 2;
+    const dy = (54 - rawCanvas.height * scale) / 2;
     ctx.drawImage(rawCanvas, dx, dy, rawCanvas.width * scale, rawCanvas.height * scale);
     const dataURL = standardCanvas.toDataURL('image/png');
     
@@ -101,11 +101,11 @@ export default function MobileSignaturePage({ params }: { params: Promise<{ sess
         <p className="text-xs text-slate-400">โปรดใช้นิ้วหรือปากกาวาดลายเซ็นลงในกรอบด้านล่าง</p>
       </div>
 
-      <div className="flex-1 p-4 flex flex-col">
-        <div className="bg-white rounded-xl flex-1 w-full overflow-hidden relative shadow-inner">
+      <div className="flex-1 p-4 flex flex-col justify-center">
+        <div className="bg-white rounded-xl w-full aspect-[2/1] overflow-hidden relative shadow-inner mb-auto">
           <SignatureCanvas 
             ref={sigCanvas}
-            canvasProps={{ className: 'w-full h-full absolute top-0 left-0' }}
+            canvasProps={{ className: 'w-full h-full absolute top-0 left-0', width: 800, height: 400 }}
             backgroundColor="white"
             penColor="black"
           />
