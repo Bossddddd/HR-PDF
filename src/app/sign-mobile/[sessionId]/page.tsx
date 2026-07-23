@@ -13,6 +13,25 @@ export default function MobileSignaturePage({ params }: { params: Promise<{ sess
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [isCompleted, setIsCompleted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Fix canvas resolution to match CSS layout to prevent pointer offset
+  useEffect(() => {
+    const handleResize = () => {
+      if (sigCanvas.current) {
+        const canvas = sigCanvas.current.getCanvas();
+        const parent = canvas.parentElement;
+        if (parent) {
+          canvas.width = parent.offsetWidth;
+          canvas.height = parent.offsetHeight;
+        }
+      }
+    };
+    
+    // Initial size setup
+    setTimeout(handleResize, 100); // small delay to ensure layout is complete
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   const [consent, setConsent] = useState(false);
 
   useEffect(() => {
@@ -102,10 +121,10 @@ export default function MobileSignaturePage({ params }: { params: Promise<{ sess
       </div>
 
       <div className="flex-1 p-4 flex flex-col justify-center">
-        <div className="bg-white rounded-xl w-full aspect-[2/1] overflow-hidden relative shadow-inner mb-auto">
+        <div className="bg-white rounded-xl w-full aspect-[3/1] overflow-hidden relative shadow-inner mb-auto">
           <SignatureCanvas 
             ref={sigCanvas}
-            canvasProps={{ className: 'w-full h-full absolute top-0 left-0', width: 800, height: 400 }}
+            canvasProps={{ className: 'w-full h-full absolute top-0 left-0' }}
             backgroundColor="white"
             penColor="black"
           />
