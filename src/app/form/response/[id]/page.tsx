@@ -19,6 +19,15 @@ export default function ReviewFormPage() {
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState<string | null>(null);
 
+  // Pre-warm DOC2PDF service เมื่อโหลดหน้า — ให้ container ตื่นก่อน user กดปุ่ม
+  useEffect(() => {
+    const converterUrl = process.env.NEXT_PUBLIC_PDF_CONVERTER_URL || '';
+    if (converterUrl) {
+      const healthUrl = converterUrl.replace('/api/convert-to-pdf', '/api/health');
+      fetch(healthUrl).catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     async function loadResponse() {
       const res = await getResponseById(responseId);

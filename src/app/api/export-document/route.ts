@@ -213,6 +213,7 @@ export async function GET(request: NextRequest) {
       const buf = docZip.generate({
         type: 'nodebuffer',
         compression: 'DEFLATE',
+        compressionOptions: { level: 9 }, // Max compression — ลดขนาดไฟล์ upload ไป DOC2PDF
       });
 
       const format = searchParams.get('format') || 'docx';
@@ -223,21 +224,33 @@ export async function GET(request: NextRequest) {
           
           const converterUrl = process.env.PDF_CONVERTER_URL || 'http://localhost:3001/api/convert-to-pdf';
           
-          const formData = new FormData();
-          formData.append('document', new Blob([buf as any], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), `document-${response.id}.docx`);
+          // Retry wrapper — ลอง 2 ครั้งก่อน fail
+          let convertRes: Response | null = null;
+          const MAX_RETRIES = 2;
+          for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+              const fd = new FormData();
+              fd.append('document', new Blob([buf as any], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), `document-${response.id}.docx`);
 
-          const convertRes = await fetch(converterUrl, {
-            method: 'POST',
-            body: formData,
-          });
+              convertRes = await fetch(converterUrl, {
+                method: 'POST',
+                body: fd,
+              });
 
-          if (!convertRes.ok) {
-            throw new Error(`Conversion API returned ${convertRes.status}`);
+              if (convertRes.ok) break;
+              console.warn(`[Retry] Attempt ${attempt}/${MAX_RETRIES} failed: HTTP ${convertRes.status}`);
+            } catch (fetchErr) {
+              console.warn(`[Retry] Attempt ${attempt}/${MAX_RETRIES} error:`, fetchErr);
+              if (attempt === MAX_RETRIES) throw fetchErr;
+            }
           }
 
-          const pdfBuf = await convertRes.arrayBuffer();
-          
-          return new NextResponse(pdfBuf, {
+          if (!convertRes || !convertRes.ok) {
+            throw new Error(`Conversion API returned ${convertRes?.status || 'no response'}`);
+          }
+
+          // Streaming response — ส่ง PDF ตรงจาก DOC2PDF ไป client โดยไม่ buffer ทั้งก้อน
+          return new NextResponse(convertRes.body, {
             status: 200,
             headers: {
               'Content-Type': 'application/pdf',
