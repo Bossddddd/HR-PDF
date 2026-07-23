@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import RoleGuard from '@/components/RoleGuard';
 import { useRole } from '@/app/context/RoleContext';
 
@@ -17,13 +17,22 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }
 
   const hasPerm = (p: string) => level >= 100 || perms.includes(p);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <RoleGuard requiredLevel={40}>
-      <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
+      <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 relative">
         
+        {/* Mobile Backdrop */}
+        {isSidebarOpen && (
+          <div 
+            className="fixed inset-0 bg-slate-900/50 z-30 md:hidden backdrop-blur-sm"
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+        )}
+
         {/* Sidebar Navigation */}
-        <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0">
+        <aside className={`fixed inset-y-0 left-0 z-40 w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="p-6 border-b border-slate-800">
             <h2 className="text-xl font-bold text-white mb-1">Admin Panel</h2>
             <p className="text-xs text-slate-400 mb-4">ระบบจัดการเอกสาร HR-PDF</p>
@@ -32,7 +41,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </Link>
           </div>
           
-          <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+          <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto custom-scrollbar" onClick={(e) => {
+            if ((e.target as HTMLElement).closest('a')) {
+              setIsSidebarOpen(false);
+            }
+          }}>
             <Link href="/inbox" className="block px-4 py-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
               📥 กล่องข้อความ (Inbox)
             </Link>
@@ -88,8 +101,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 flex flex-col overflow-hidden w-full min-w-0">
+          
+          {/* Mobile Header */}
+          <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+            <div className="font-extrabold text-slate-800 text-lg">Admin Panel</div>
+            <button onClick={() => setIsSidebarOpen(true)} className="p-2 -mr-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 md:p-8">
             {children}
           </div>
         </main>
