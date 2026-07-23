@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, use } from 'react';
+import { useState, useRef, useEffect, use, useMemo } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { checkSignatureSession, completeSignatureSession } from '@/app/actions/signature';
 import { toast } from 'sonner';
@@ -33,6 +33,8 @@ export default function MobileSignaturePage({ params }: { params: Promise<{ sess
     return () => window.removeEventListener('resize', handleResize);
   }, []);
   const [consent, setConsent] = useState(false);
+
+  const canvasProps = useMemo(() => ({ className: 'w-full h-full absolute top-0 left-0' }), []);
 
   useEffect(() => {
     async function checkSession() {
@@ -124,9 +126,10 @@ export default function MobileSignaturePage({ params }: { params: Promise<{ sess
         <div className="bg-white rounded-xl w-full aspect-[3/1] overflow-hidden relative shadow-inner mb-auto">
           <SignatureCanvas 
             ref={sigCanvas}
-            canvasProps={{ className: 'w-full h-full absolute top-0 left-0' }}
+            canvasProps={canvasProps}
             backgroundColor="white"
             penColor="black"
+            clearOnResize={false}
           />
           <button 
             onClick={handleClear}

@@ -34,7 +34,7 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
   const sigCanvas = useRef<any>(null);
   const [consent, setConsent] = useState(false);
   
-
+  const canvasProps = useMemo(() => ({ className: 'w-full h-full absolute top-0 left-0', width: 400, height: 134 }), []);
 
   // Polling for signature completion
   useEffect(() => {
@@ -515,9 +515,10 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
                   <div className="border-2 border-dashed border-slate-300 rounded-xl bg-white relative mb-4" style={{ width: '100%', height: '134px' }}>
                     <SignatureCanvas 
                       ref={sigCanvas}
-                      canvasProps={{ className: 'w-full h-full absolute top-0 left-0', width: 400, height: 134 }}
+                      canvasProps={canvasProps}
                       penColor="black"
                       backgroundColor="white"
+                      clearOnResize={false}
                     />
                     <button 
                       onClick={() => sigCanvas.current?.clear()}
