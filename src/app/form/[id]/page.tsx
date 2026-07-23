@@ -79,7 +79,18 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
       toast.error('กรุณาเซ็นลายเซ็นของคุณ');
       return;
     }
-    const dataURL = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+    const rawCanvas = sigCanvas.current.getTrimmedCanvas();
+    // สร้าง canvas ขนาดมาตรฐานเดียวกับ DOCX export (160x54 pixels) เพื่อให้ขนาดเท่ากันทุกจุด
+    const standardCanvas = document.createElement('canvas');
+    standardCanvas.width = 160;
+    standardCanvas.height = 54;
+    const ctx = standardCanvas.getContext('2d')!;
+    // วาดลายเซ็นให้พอดีกับ canvas มาตรฐาน (fit ทั้ง width/height)
+    const scale = Math.min(160 / rawCanvas.width, 54 / rawCanvas.height);
+    const dx = (160 - rawCanvas.width * scale) / 2;
+    const dy = (54 - rawCanvas.height * scale) / 2;
+    ctx.drawImage(rawCanvas, dx, dy, rawCanvas.width * scale, rawCanvas.height * scale);
+    const dataURL = standardCanvas.toDataURL('image/png');
     handleChange(activeSignField!, dataURL);
     closeSignatureModal();
     toast.success('บันทึกลายเซ็นเรียบร้อยแล้ว');
@@ -100,6 +111,60 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
     }
     loadForm();
   }, [workflowId, user]);
+
+  // Auto-fill dates for current user's role
+  useEffect(() => {
+    if (allFields.length > 0) {
+      const now = new Date();
+      const thaiMonths = [
+        "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+        "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+      ];
+      
+      const day = now.getDate().toString();
+      const monthStr = thaiMonths[now.getMonth()];
+      const yearBE = (now.getFullYear() + 543).toString();
+      
+      // Calculate local YYYY-MM-DD to avoid timezone issues
+      const tzOffset = now.getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
+      const yyyyMmDd = localISOTime;
+
+      setFormData(prev => {
+        let updated = { ...prev };
+        let changed = false;
+
+        allFields.forEach(field => {
+          const isMyRole = !field.assignedRole || field.assignedRole === 'ผู้ใช้ทั่วไป (User)' || field.stepRole === 'ผู้ใช้ทั่วไป (User)';
+          if (!isMyRole) return; // Only auto-fill for the current user's role
+
+          // If already filled, don't overwrite
+          if (updated[field.id]) return;
+
+          const label = field.label || field.id;
+          const cleanLabel = label.startsWith('%') ? label.substring(1) : label;
+
+          if (field.type === 'date' || cleanLabel.includes('วัน/เดือน/ปี ที่ลงนาม')) {
+             updated[field.id] = yyyyMmDd;
+             changed = true;
+          } else if (field.type === 'input') {
+             if (cleanLabel === 'วันที่') {
+               updated[field.id] = day;
+               changed = true;
+             } else if (cleanLabel === 'เดือน') {
+               updated[field.id] = monthStr;
+               changed = true;
+             } else if (cleanLabel === 'ปี' || cleanLabel === 'ปีพ.ศ.' || cleanLabel === 'ปี พ.ศ.') {
+               updated[field.id] = yearBE;
+               changed = true;
+             }
+          }
+        });
+
+        return changed ? updated : prev;
+      });
+    }
+  }, [allFields]);
 
   const handleChange = (fieldId: string, value: string) => {
     setFormData(prev => ({ ...prev, [fieldId]: value }));
@@ -304,7 +369,7 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
                           {field.type === 'signature' && (
                             <div className="cursor-pointer" onClick={() => isMyRole && openSignatureModal(field.id)}>
                               {formData[field.id] ? (
-                                <img src={formData[field.id]} alt="Signature" className="h-10 mix-blend-multiply" />
+                                <img src={formData[field.id]} alt="Signature" className="mix-blend-multiply" style={{ width: '120px', height: '40px', objectFit: 'contain' }} />
                               ) : isMyRole ? (
                                 <span className="text-blue-500 text-xs">[คลิกเซ็นชื่อ]</span>
                               ) : (
@@ -331,7 +396,7 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
                     
                     {(field.type === 'input' || field.type === 'date' || field.type === 'signature') && (
                       <label className={`block text-base font-medium mb-3 ${isMyRole ? 'text-slate-800' : 'text-slate-400'}`}>
-                        {field.label} {isMyRole && <span className="text-red-500">*</span>}
+                        {(field.label || '').startsWith('%') ? field.label.substring(1) : field.label} {isMyRole && <span className="text-red-500">*</span>}
                         {(!isMyRole) && <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full text-slate-400 bg-slate-100">สำหรับ {field.stepRole}</span>}
                       </label>
                     )}
@@ -372,7 +437,7 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
                       <div className="border border-slate-200 rounded-lg p-6 bg-slate-50 text-center flex flex-col items-center justify-center">
                         {formData[field.id] ? (
                           <div className="relative group cursor-pointer" onClick={() => isMyRole && openSignatureModal(field.id)}>
-                            <img src={formData[field.id]} alt="Signature" className="max-h-24 mx-auto mix-blend-multiply" />
+                            <img src={formData[field.id]} alt="Signature" className="mx-auto mix-blend-multiply" style={{ width: '160px', height: '54px', objectFit: 'contain' }} />
                             {isMyRole && (
                               <div className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-md font-medium text-sm">
                                 กดเพื่อแก้ไขลายเซ็น
@@ -445,10 +510,12 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
               {signMethod === 'draw' ? (
                 // Draw directly in modal
                 <div className="w-full">
-                  <div className="border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 relative h-48 mb-4">
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl bg-white relative mb-4" style={{ width: '100%', height: '134px' }}>
                     <SignatureCanvas 
                       ref={sigCanvas}
-                      canvasProps={{ className: 'w-full h-full absolute top-0 left-0' }}
+                      canvasProps={{ className: 'w-full h-full absolute top-0 left-0', width: 400, height: 134 }}
+                      penColor="black"
+                      backgroundColor="white"
                     />
                     <button 
                       onClick={() => sigCanvas.current?.clear()}

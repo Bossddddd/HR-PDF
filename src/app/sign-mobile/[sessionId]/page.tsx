@@ -48,7 +48,17 @@ export default function MobileSignaturePage({ params }: { params: Promise<{ sess
     }
 
     setIsSaving(true);
-    const dataURL = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+    const rawCanvas = sigCanvas.current.getTrimmedCanvas();
+    // สร้าง canvas ขนาดมาตรฐานเดียวกับ DOCX export (200x67 pixels)
+    const standardCanvas = document.createElement('canvas');
+    standardCanvas.width = 200;
+    standardCanvas.height = 67;
+    const ctx = standardCanvas.getContext('2d')!;
+    const scale = Math.min(200 / rawCanvas.width, 67 / rawCanvas.height);
+    const dx = (200 - rawCanvas.width * scale) / 2;
+    const dy = (67 - rawCanvas.height * scale) / 2;
+    ctx.drawImage(rawCanvas, dx, dy, rawCanvas.width * scale, rawCanvas.height * scale);
+    const dataURL = standardCanvas.toDataURL('image/png');
     
     const res = await completeSignatureSession(sessionId, dataURL);
     if (res.success) {

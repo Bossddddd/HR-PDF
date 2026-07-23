@@ -211,6 +211,62 @@ export default function ReviewFormPage() {
     return { allFields: fields, attachedFiles: files };
   }, [response]);
 
+  // Auto-fill dates for current user's role
+  useEffect(() => {
+    if (allFields.length > 0 && role && response) {
+      const isReadonly = response.status === 'อนุมัติแล้ว' || response.status === 'ตีกลับ';
+      if (isReadonly) return;
+
+      const now = new Date();
+      const thaiMonths = [
+        "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+        "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
+      ];
+      
+      const day = now.getDate().toString();
+      const monthStr = thaiMonths[now.getMonth()];
+      const yearBE = (now.getFullYear() + 543).toString();
+      
+      const tzOffset = now.getTimezoneOffset() * 60000;
+      const localISOTime = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
+      const yyyyMmDd = localISOTime;
+
+      setFormData(prev => {
+        let updated = { ...prev };
+        let changed = false;
+
+        allFields.forEach(field => {
+          const isMyRole = role === (field.assignedRole || field.stepRole);
+          if (!isMyRole) return; 
+
+          // If already filled, don't overwrite
+          if (updated[field.id]) return;
+
+          const label = field.label || field.id;
+          const cleanLabel = label.startsWith('%') ? label.substring(1) : label;
+
+          if (field.type === 'date' || cleanLabel.includes('วัน/เดือน/ปี ที่ลงนาม')) {
+             updated[field.id] = yyyyMmDd;
+             changed = true;
+          } else if (field.type === 'input') {
+             if (cleanLabel === 'วันที่') {
+               updated[field.id] = day;
+               changed = true;
+             } else if (cleanLabel === 'เดือน') {
+               updated[field.id] = monthStr;
+               changed = true;
+             } else if (cleanLabel === 'ปี' || cleanLabel === 'ปีพ.ศ.' || cleanLabel === 'ปี พ.ศ.') {
+               updated[field.id] = yearBE;
+               changed = true;
+             }
+          }
+        });
+
+        return changed ? updated : prev;
+      });
+    }
+  }, [allFields, role, response]);
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-500">กำลังโหลดเอกสาร...</div>;
   if (!response || !response.workflow) return <div className="min-h-screen flex items-center justify-center bg-slate-50">ไม่พบเอกสาร 404</div>;
 
@@ -276,7 +332,7 @@ export default function ReviewFormPage() {
                 return (
                   <div key={block.id} className="w-full">
                     <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
-                      {block.label}
+                      {(block.label || '').startsWith('%') ? block.label.substring(1) : block.label}
                       <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'} print:hidden`}>({block.assignedRole || block.stepRole})</span>
                     </label>
                     <input 
@@ -295,7 +351,7 @@ export default function ReviewFormPage() {
                 return (
                   <div key={block.id} className="w-full">
                     <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
-                      {block.label}
+                      {(block.label || '').startsWith('%') ? block.label.substring(1) : block.label}
                       <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'} print:hidden`}>({block.assignedRole || block.stepRole})</span>
                     </label>
                     <textarea 
@@ -314,7 +370,7 @@ export default function ReviewFormPage() {
                 return (
                   <div key={block.id} className="w-full sm:w-1/2">
                     <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
-                      {block.label}
+                      {(block.label || '').startsWith('%') ? block.label.substring(1) : block.label}
                       <span className={`ml-2 text-xs font-normal px-2 py-0.5 rounded-full ${isMyRole ? 'text-indigo-600 bg-indigo-100' : 'text-slate-500 bg-slate-100'} print:hidden`}>({block.assignedRole || block.stepRole})</span>
                     </label>
                     <input 
@@ -333,7 +389,7 @@ export default function ReviewFormPage() {
                   <div key={block.id} className="mt-8 mb-4">
                     <div className="w-full sm:w-64 flex flex-col">
                       <label className={`block text-sm font-bold mb-2 ${isMyRole ? 'text-indigo-700' : 'text-slate-500'}`}>
-                        {block.label}
+                        {(block.label || '').startsWith('%') ? block.label.substring(1) : block.label}
                         <span className="ml-2 text-xs font-normal print:hidden">สำหรับ: {block.assignedRole || block.stepRole}</span>
                       </label>
                       <input 
