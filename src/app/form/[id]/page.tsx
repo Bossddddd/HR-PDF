@@ -26,6 +26,17 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [numPages, setNumPages] = useState<number | null>(null);
+  const [pdfWidth, setPdfWidth] = useState(794);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      const newWidth = Math.min(window.innerWidth - 64, 794);
+      setPdfWidth(newWidth);
+    };
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
 
   // Signature Modal State
   const [activeSignField, setActiveSignField] = useState<string | null>(null);
@@ -262,13 +273,13 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
   }
 
   return (
-    <div className="min-h-screen bg-[#F0EBF8] py-8 px-4 font-sans text-slate-800">
+    <div className="min-h-screen bg-[#F0EBF8] py-4 md:py-8 px-4 font-sans text-slate-800">
       <div className="max-w-3xl mx-auto space-y-4">
         
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="h-3 bg-purple-600 w-full"></div>
-          <div className="p-8">
-            <h1 className="text-3xl font-bold mb-3">{workflow.title}</h1>
+          <div className="p-4 md:p-8">
+            <h1 className="text-2xl md:text-3xl font-bold mb-3">{workflow.title}</h1>
             <p className="text-slate-600 text-sm whitespace-pre-wrap">{workflow.description}</p>
           </div>
         </div>
@@ -317,8 +328,8 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
               ไม่มีฟิลด์ข้อมูลที่ต้องกรอกในขั้นตอนนี้
             </div>
           ) : isPdfMode && pdfFile ? (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex justify-center p-8 bg-slate-100">
-              <div className="w-full max-w-[794px] min-h-[1123px] bg-white shadow-md relative">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex justify-center p-4 md:p-8 bg-slate-100 overflow-x-auto">
+              <div className="bg-white shadow-md relative" style={{ width: pdfWidth, minHeight: pdfWidth * 1.4143 }}>
                 <div className="absolute inset-0 z-0 pointer-events-none">
                   <Document 
                     file={pdfFile.url} 
@@ -331,13 +342,13 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
                         pageNumber={index + 1} 
                         renderTextLayer={false} 
                         renderAnnotationLayer={false}
-                        width={794}
+                        width={pdfWidth}
                       />
                     ))}
                   </Document>
                 </div>
                 
-                <div className="relative z-10 w-[794px] min-h-[1123px]">
+                <div className="relative z-10" style={{ width: pdfWidth, minHeight: pdfWidth * 1.4143 }}>
                   {allFields.map((field) => {
                     const isMyRole = !field.assignedRole || field.assignedRole === 'ผู้ใช้ทั่วไป (User)' || field.stepRole === 'ผู้ใช้ทั่วไป (User)';
                     if (field.type === 'heading' || field.type === 'paragraph' || field.type === 'image') return null;
@@ -545,15 +556,32 @@ export default function FillFormPage({ params }: { params: Promise<{ id: string 
                       <div className="bg-white p-4 inline-block rounded-xl border border-slate-200 shadow-sm">
                         <QRCodeSVG value={`${window.location.origin}/sign-mobile/${sessionId}`} size={200} />
                       </div>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(`${window.location.origin}/sign-mobile/${sessionId}`);
-                          toast.success('คัดลอกลิงก์เรียบร้อยแล้ว!');
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        🔗 คัดลอกลิงก์สำหรับเปิดในมือถือ
-                      </button>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/sign-mobile/${sessionId}`);
+                            toast.success('คัดลอกลิงก์เรียบร้อยแล้ว!');
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          🔗 คัดลอกลิงก์
+                        </button>
+                        
+                        {typeof navigator !== 'undefined' && navigator.share && (
+                          <button 
+                            onClick={() => {
+                              navigator.share({
+                                title: 'เซ็นลายเซ็นอิเล็กทรอนิกส์',
+                                text: 'กรุณาเปิดลิงก์นี้ในมือถือเพื่อวาดลายเซ็นของคุณ:',
+                                url: `${window.location.origin}/sign-mobile/${sessionId}`
+                              }).catch(err => console.log('Share error:', err));
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            📤 แชร์ลิงก์
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="h-[200px] flex items-center justify-center text-slate-400">กำลังสร้าง QR Code...</div>
