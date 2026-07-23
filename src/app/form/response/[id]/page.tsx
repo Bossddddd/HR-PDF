@@ -275,7 +275,7 @@ export default function ReviewFormPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      <header className="bg-white border-b border-slate-200 h-16 flex items-center px-4 md:px-6 shrink-0 z-10 sticky top-0 shadow-sm">
+      <header className="bg-white border-b border-slate-200 h-16 flex justify-between items-center px-4 md:px-6 shrink-0 z-10 sticky top-0 shadow-sm print:hidden">
         <button onClick={() => router.push('/inbox')} className="mr-2 md:mr-4 text-slate-400 hover:text-slate-600 transition-colors p-2 rounded-full hover:bg-slate-100 flex items-center gap-1">
             &larr; กลับ
           </button>
@@ -300,8 +300,9 @@ export default function ReviewFormPage() {
               </>
             )}
           </div>
-        </div>
+      </header>
 
+      <main className="flex-1 max-w-3xl w-full mx-auto p-4 md:p-8 lg:p-12">
         <div className="bg-white shadow-xl rounded-xl p-4 md:p-8 lg:p-12 border border-slate-200 relative flex flex-col gap-6 print:shadow-none print:border-none print:p-0 print:min-h-0">
           <div className="absolute top-0 left-0 w-full h-3 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-t-xl print:hidden"></div>
           
@@ -430,7 +431,7 @@ export default function ReviewFormPage() {
             </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
